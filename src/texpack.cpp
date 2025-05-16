@@ -1,4 +1,5 @@
 #include <texpack.hpp>
+#include <cmath>
 #include <fstream>
 #include <pugixml.hpp>
 #include <rectpack2D/finders_interface.h>
