@@ -61,5 +61,5 @@ jobs:
         run: |
           export CPM_SOURCE_CACHE=${{ github.workspace }}/cpm-cache
           mkdir build
-          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ ${{ matrix.config.args }}
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ ${{ matrix.config.args }}
           cmake --build build --config Release
