@@ -3,6 +3,7 @@
 
 #include <filesystem>
 #include <Geode/Result.hpp>
+#include <vector>
 
 namespace texpack {
     struct Size;
