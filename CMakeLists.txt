@@ -2,7 +2,11 @@ cmake_minimum_required(VERSION 3.21)
 
 project(texpack)
 
-add_library(texpack INTERFACE)
+add_library(texpack
+    src/texpack.cpp
+    miniz/miniz.c
+    spng/spng.c
+)
 
 if (NOT COMMAND CPMAddPackage)
     include(cmake/get_cpm.cmake)
@@ -20,26 +24,17 @@ if (NOT TARGET rectpack2D)
     CPMAddPackage("gh:TeamHypersomnia/rectpack2D#3344bf5")
 endif()
 
-set_target_properties(texpack PROPERTIES CXX_VISIBILITY_PRESET hidden)
+target_compile_features(texpack PUBLIC cxx_std_20)
 
-target_compile_definitions(texpack INTERFACE SPNG_USE_MINIZ SPNG_STATIC)
-target_compile_features(texpack INTERFACE cxx_std_20)
+target_include_directories(texpack PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(texpack PUBLIC GeodeResult)
 
-target_sources(texpack INTERFACE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/texpack.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/miniz/miniz.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/spng/spng.c
-)
-set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/src/texpack.cpp PROPERTIES
-    SKIP_PRECOMPILE_HEADERS ON
-)
-
-target_include_directories(texpack INTERFACE
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
+target_compile_definitions(texpack PRIVATE SPNG_USE_MINIZ SPNG_STATIC)
+target_include_directories(texpack PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/miniz
     ${CMAKE_CURRENT_SOURCE_DIR}/spng
 )
-target_link_libraries(texpack INTERFACE GeodeResult pugixml-static rectpack2D)
+target_link_libraries(texpack PRIVATE pugixml-static rectpack2D)
 
 if (PROJECT_IS_TOP_LEVEL)
     add_subdirectory(test)
