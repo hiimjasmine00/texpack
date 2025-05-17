@@ -37,6 +37,7 @@
 # Build folders
 **/build**
 **/out**
+test/images/**
 
 # Sublime Text
 *.tmlanguage.cache

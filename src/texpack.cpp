@@ -91,6 +91,18 @@ void Packer::frame(std::string_view name, const uint8_t* data, uint32_t width, u
     m_frames.push_back(std::move(frame));
 }
 
+Result<> Packer::frame(std::string_view name, const uint8_t* data, size_t size) {
+    GEODE_UNWRAP_INTO(auto image, fromPNG(data, size));
+    frame(name, image.data.data(), image.width, image.height);
+    return Ok();
+}
+
+Result<> Packer::frame(std::string_view name, const std::filesystem::path& path) {
+    GEODE_UNWRAP_INTO(auto image, fromPNG(path));
+    frame(name, image.data.data(), image.width, image.height);
+    return Ok();
+}
+
 Result<Frame&> Packer::frame(std::string_view name) {
     auto it = std::ranges::find_if(m_frames, [&name](const Frame& frame) { return frame.name == name; });
     if (it == m_frames.end()) return Err("Frame not found");
@@ -136,9 +148,6 @@ Result<> Packer::pack() {
     if (!success) return Err("Packing failed on " + m_frames[index].name);
     else if (result.w <= 0 || result.h <= 0) return Err("Packing failed");
 
-    m_size.width = result.w;
-    m_size.height = result.h;
-
     for (int i = 0; i < rects.size(); i++) {
         auto& frame = m_frames[i];
         auto& rect = rects[i];
@@ -161,6 +170,29 @@ Result<> Packer::pack() {
             }
         }
     }
+
+    auto& data = m_image.data;
+    data.clear();
+    data.resize(result.w * result.h * 4);
+    for (auto& frame : m_frames) {
+        auto [l, t] = frame.rect.origin;
+        auto w = frame.rotated ? frame.rect.size.height : frame.rect.size.width;
+        auto h = frame.rotated ? frame.rect.size.width : frame.rect.size.height;
+        auto& frameData = frame.data;
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                auto src = (y * w + x) * 4;
+                auto dst = ((t + y) * result.w + l + x) * 4;
+                data[dst] = frameData[src];
+                data[dst + 1] = frameData[src + 1];
+                data[dst + 2] = frameData[src + 2];
+                data[dst + 3] = frameData[src + 3];
+            }
+        }
+    }
+
+    m_image.width = result.w;
+    m_image.height = result.h;
 
     return Ok();
 }
@@ -195,7 +227,7 @@ std::string Packer::plist(const std::string& name, std::string_view indent) {
     metadata.append_child("key").text() = "realTextureFileName";
     metadata.append_child("string").text() = name;
     metadata.append_child("key").text() = "size";
-    metadata.append_child("string").text() = m_size.string();
+    metadata.append_child("string").text() = "{" + std::to_string(m_image.width) + "," + std::to_string(m_image.height) + "}";
     metadata.append_child("key").text() = "textureFileName";
     metadata.append_child("string").text() = name;
 
@@ -204,25 +236,65 @@ std::string Packer::plist(const std::string& name, std::string_view indent) {
     return writer.str();
 }
 
+Result<> Packer::plist(const std::filesystem::path& path, const std::string& name, std::string_view indent) {
+    std::ofstream file(path);
+    if (!file.is_open()) return Err("Failed to open file");
+    file << plist(name, indent);
+    file.close();
+    return Ok();
+}
+
 Result<std::vector<uint8_t>> Packer::png() {
-    std::vector<uint8_t> rawData(m_size.width * m_size.height * 4);
-    for (auto& frame : m_frames) {
-        auto [l, t] = frame.rect.origin;
-        auto w = frame.rotated ? frame.rect.size.height : frame.rect.size.width;
-        auto h = frame.rotated ? frame.rect.size.width : frame.rect.size.height;
-        auto& frameData = frame.data;
-        for (int y = 0; y < h; y++) {
-            for (int x = 0; x < w; x++) {
-                auto src = (y * w + x) * 4;
-                auto dst = ((t + y) * m_size.width + l + x) * 4;
-                rawData[dst] = frameData[src];
-                rawData[dst + 1] = frameData[src + 1];
-                rawData[dst + 2] = frameData[src + 2];
-                rawData[dst + 3] = frameData[src + 3];
-            }
-        }
+    GEODE_UNWRAP_INTO(auto pngData, toPNG(m_image.data.data(), m_image.width, m_image.height));
+    return Ok(pngData);
+}
+
+Result<> Packer::png(const std::filesystem::path& path) {
+    GEODE_UNWRAP(toPNG(path, m_image.data.data(), m_image.width, m_image.height));
+    return Ok();
+}
+
+Result<Image> texpack::fromPNG(const uint8_t* data, size_t size) {
+    auto ctx = spng_ctx_new(0);
+    if (!ctx) return Err("Failed to create PNG context");
+
+    if (auto result = spng_set_png_buffer(ctx, data, size)) {
+        spng_ctx_free(ctx);
+        return Err(std::string("Failed to set PNG buffer: ") + spng_strerror(result));
     }
 
+    spng_ihdr ihdr;
+    if (auto result = spng_get_ihdr(ctx, &ihdr)) {
+        spng_ctx_free(ctx);
+        return Err(std::string("Failed to get image header: ") + spng_strerror(result));
+    }
+
+    size_t imageSize = 0;
+    if (auto result = spng_decoded_image_size(ctx, SPNG_FMT_RGBA8, &imageSize)) {
+        spng_ctx_free(ctx);
+        return Err(std::string("Failed to get image size: ") + spng_strerror(result));
+    }
+
+    std::vector<uint8_t> image(imageSize);
+    if (auto result = spng_decode_image(ctx, image.data(), imageSize, SPNG_FMT_RGBA8, 0)) {
+        spng_ctx_free(ctx);
+        return Err(std::string("Failed to decode image: ") + spng_strerror(result));
+    }
+
+    spng_ctx_free(ctx);
+    return Ok<Image>({ image, ihdr.width, ihdr.height });
+}
+
+Result<Image> texpack::fromPNG(const std::filesystem::path& path) {
+    std::ifstream file(path, std::ios::binary);
+    if (!file.is_open()) return Err("Failed to open file");
+    std::vector<uint8_t> data((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    file.close();
+    GEODE_UNWRAP_INTO(auto image, fromPNG(data.data(), data.size()));
+    return Ok(image);
+}
+
+Result<std::vector<uint8_t>> texpack::toPNG(const uint8_t* data, uint32_t width, uint32_t height) {
     auto ctx = spng_ctx_new(SPNG_CTX_ENCODER);
     if (!ctx) return Err("Failed to create PNG context");
 
@@ -231,22 +303,13 @@ Result<std::vector<uint8_t>> Packer::png() {
         return Err(std::string("Failed to set encoding options: ") + spng_strerror(result));
     }
 
-    spng_ihdr ihdr = {
-        .width = (uint32_t)m_size.width,
-        .height = (uint32_t)m_size.height,
-        .bit_depth = 8,
-        .color_type = SPNG_COLOR_TYPE_TRUECOLOR_ALPHA,
-        .compression_method = 0,
-        .filter_method = 0,
-        .interlace_method = SPNG_INTERLACE_NONE
-    };
-
+    spng_ihdr ihdr = { width, height, 8, SPNG_COLOR_TYPE_TRUECOLOR_ALPHA, 0, SPNG_FILTER_NONE, SPNG_INTERLACE_NONE };
     if (auto result = spng_set_ihdr(ctx, &ihdr)) {
         spng_ctx_free(ctx);
         return Err(std::string("Failed to set image header: ") + spng_strerror(result));
     }
 
-    if (auto result = spng_encode_image(ctx, rawData.data(), rawData.size(), SPNG_FMT_PNG, SPNG_ENCODE_FINALIZE)) {
+    if (auto result = spng_encode_image(ctx, data, width * height * 4, SPNG_FMT_PNG, SPNG_ENCODE_FINALIZE)) {
         spng_ctx_free(ctx);
         return Err(std::string("Failed to encode image: ") + spng_strerror(result));
     }
@@ -269,19 +332,11 @@ Result<std::vector<uint8_t>> Packer::png() {
     return Ok(pngData);
 }
 
-Result<> Packer::plist(const std::filesystem::path& path, const std::string& name, std::string_view indent) {
-    std::ofstream file(path);
-    if (!file.is_open()) return Err("Failed to open file");
-    file << plist(name, indent);
-    file.close();
-    return Ok();
-}
-
-Result<> Packer::png(const std::filesystem::path& path) {
-    GEODE_UNWRAP_INTO(auto data, png());
+Result<> texpack::toPNG(const std::filesystem::path& path, const uint8_t* data, uint32_t width, uint32_t height) {
+    GEODE_UNWRAP_INTO(auto pngData, toPNG(data, width, height));
     std::ofstream file(path, std::ios::binary);
     if (!file.is_open()) return Err("Failed to open file");
-    file.write(reinterpret_cast<const char*>(data.data()), data.size());
+    file.write(reinterpret_cast<const char*>(pngData.data()), pngData.size());
     file.close();
     return Ok();
 }
