@@ -4,8 +4,8 @@ A C++ library for combining textures into Cocos-style spritesheets.
 ## Inclusion
 This library can be included using [CPM.cmake](https://github.com/cpm-cmake/CPM.cmake).
 ```cmake
-# It is highly recommended to use a specific commit hash instead of main
-CPMAddPackage("gh:hiimjasmine00/texpack#main")
+# Add texpack to your project
+CPMAddPackage("gh:hiimjasmine00/texpack@0.1.0")
 
 # Add the library to your target
 target_link_libraries(${PROJECT_NAME} texpack)
