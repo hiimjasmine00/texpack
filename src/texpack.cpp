@@ -276,7 +276,7 @@ Result<Image> texpack::fromPNG(const uint8_t* data, size_t size) {
     }
 
     std::vector<uint8_t> image(imageSize);
-    if (auto result = spng_decode_image(ctx, image.data(), imageSize, SPNG_FMT_RGBA8, 0)) {
+    if (auto result = spng_decode_image(ctx, image.data(), imageSize, SPNG_FMT_RGBA8, SPNG_DECODE_TRNS)) {
         spng_ctx_free(ctx);
         return Err(std::string("Failed to decode image: ") + spng_strerror(result));
     }
