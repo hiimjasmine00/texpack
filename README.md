@@ -5,16 +5,10 @@ A C++ library for combining textures into Cocos-style spritesheets.
 This library can be included using [CPM.cmake](https://github.com/cpm-cmake/CPM.cmake).
 ```cmake
 # Add texpack to your project
-CPMAddPackage("gh:hiimjasmine00/texpack@0.1.1")
+CPMAddPackage("gh:hiimjasmine00/texpack@0.2.0")
 
 # Add the library to your target
 target_link_libraries(${PROJECT_NAME} texpack)
-```
-
-If you are using this library with [Geode SDK](https://github.com/geode-sdk/geode), you have to add the following line to your `CMakeLists.txt` before `add_subdirectory($ENV{GEODE_SDK} ${CMAKE_CURRENT_BINARY_DIR}/geode)`, preferably at the top:
-```cmake
-# Turn off code generation for pugixml
-set(GEODE_CODEGEN_EXTRA_ARGS "--skip-pugixml")
 ```
 
 ## Usage

@@ -1,15 +1,18 @@
 #include <texpack.hpp>
 #include <cmath>
 #include <fstream>
+#define pugi _pugi
 #include <pugixml.hpp>
+#undef pugi
 #include <rectpack2D/finders_interface.h>
 #include <spng.h>
 
 using namespace texpack;
 using namespace geode;
 using namespace rectpack2D;
+namespace pugi = _pugi;
 
-void Packer::frame(std::string_view name, const uint8_t* data, uint32_t width, uint32_t height) {
+void Packer::frame(std::string_view name, std::span<const uint8_t> data, uint32_t width, uint32_t height) {
     auto it = std::ranges::find_if(m_frames, [&name](const Frame& frame) { return frame.name == name; });
     if (it != m_frames.end()) m_frames.erase(it, m_frames.end());
 
@@ -31,7 +34,7 @@ void Packer::frame(std::string_view name, const uint8_t* data, uint32_t width, u
     }
     left = std::max(left, 0);
 
-    auto right = -1;
+    auto right = 0;
     for (int x = width - 1; x >= 0; x--) {
         for (int y = 0; y < height; y++) {
             if (data[(y * width + x) * 4 + 3] != 0) {
@@ -39,9 +42,11 @@ void Packer::frame(std::string_view name, const uint8_t* data, uint32_t width, u
                 break;
             }
         }
-        if (right != -1) break;
+        if (right != 0) break;
     }
     right = std::min(right, (int)width);
+
+    if (left >= right) right = left + 1;
 
     auto top = -1;
     for (int y = 0; y < height; y++) {
@@ -55,7 +60,7 @@ void Packer::frame(std::string_view name, const uint8_t* data, uint32_t width, u
     }
     top = std::max(top, 0);
 
-    auto bottom = -1;
+    auto bottom = 0;
     for (int y = height - 1; y >= 0; y--) {
         for (int x = 0; x < width; x++) {
             if (data[(y * width + x) * 4 + 3] != 0) {
@@ -63,9 +68,11 @@ void Packer::frame(std::string_view name, const uint8_t* data, uint32_t width, u
                 break;
             }
         }
-        if (bottom != -1) break;
+        if (bottom != 0) break;
     }
     bottom = std::min(bottom, (int)height);
+
+    if (top >= bottom) bottom = top + 1;
 
     auto w = right - left;
     auto h = bottom - top;
@@ -73,14 +80,9 @@ void Packer::frame(std::string_view name, const uint8_t* data, uint32_t width, u
     frame.offset.y = (int)round((height - h) / 2.0) - top;
     frame.data.resize(w * h * 4);
 
-    for (int x = 0; x < w; x++) {
+    for (int x = 0; x < w * 4; x++) {
         for (int y = 0; y < h; y++) {
-            auto src = ((y + top) * width + x + left) * 4;
-            auto dst = (y * w + x) * 4;
-            frame.data[dst] = data[src];
-            frame.data[dst + 1] = data[src + 1];
-            frame.data[dst + 2] = data[src + 2];
-            frame.data[dst + 3] = data[src + 3];
+            frame.data[y * w * 4 + x] = data[(y + top) * width * 4 + left * 4 + x];
         }
     }
 
@@ -91,15 +93,19 @@ void Packer::frame(std::string_view name, const uint8_t* data, uint32_t width, u
     m_frames.push_back(std::move(frame));
 }
 
-Result<> Packer::frame(std::string_view name, const uint8_t* data, size_t size) {
-    GEODE_UNWRAP_INTO(auto image, fromPNG(data, size));
-    frame(name, image.data.data(), image.width, image.height);
+void Packer::frame(std::string_view name, const Image& image) {
+    frame(name, image.data, image.width, image.height);
+}
+
+Result<> Packer::frame(std::string_view name, std::span<const uint8_t> data) {
+    GEODE_UNWRAP_INTO(auto image, fromPNG(data));
+    frame(name, image.data, image.width, image.height);
     return Ok();
 }
 
 Result<> Packer::frame(std::string_view name, const std::filesystem::path& path) {
     GEODE_UNWRAP_INTO(auto image, fromPNG(path));
-    frame(name, image.data.data(), image.width, image.height);
+    frame(name, image.data, image.width, image.height);
     return Ok();
 }
 
@@ -134,7 +140,7 @@ Result<> Packer::pack() {
     auto success = true;
     auto result = find_best_packing<empty_spaces<true>>(rects, make_finder_input(
         m_capacity, 1,
-        [&index](rect_xywhf& rect) {
+        [&index](auto&) {
             index++;
             return callback_result::CONTINUE_PACKING;
         },
@@ -158,14 +164,9 @@ Result<> Packer::pack() {
         if (frame.rotated) {
             std::vector<uint8_t> original(frame.data);
             auto [w, h] = frame.rect.size;
-            for (int x = 0; x < w; x++) {
+            for (int x = 0; x < w * 4; x++) {
                 for (int y = h - 1; y >= 0; y--) {
-                    auto src = (y * w + x) * 4;
-                    auto dst = (x * h + h - 1 - y) * 4;
-                    frame.data[dst] = original[src];
-                    frame.data[dst + 1] = original[src + 1];
-                    frame.data[dst + 2] = original[src + 2];
-                    frame.data[dst + 3] = original[src + 3];
+                    frame.data[(x / 4 * h + h - 1 - y) * 4 + x % 4] = original[y * w * 4 + x];
                 }
             }
         }
@@ -180,13 +181,8 @@ Result<> Packer::pack() {
         auto h = frame.rotated ? frame.rect.size.width : frame.rect.size.height;
         auto& frameData = frame.data;
         for (int y = 0; y < h; y++) {
-            for (int x = 0; x < w; x++) {
-                auto src = (y * w + x) * 4;
-                auto dst = ((t + y) * result.w + l + x) * 4;
-                data[dst] = frameData[src];
-                data[dst + 1] = frameData[src + 1];
-                data[dst + 2] = frameData[src + 2];
-                data[dst + 3] = frameData[src + 3];
+            for (int x = 0; x < w * 4; x++) {
+                data[(t + y) * result.w * 4 + l * 4 + x] = frameData[y * w * 4 + x];
             }
         }
     }
@@ -245,20 +241,20 @@ Result<> Packer::plist(const std::filesystem::path& path, const std::string& nam
 }
 
 Result<std::vector<uint8_t>> Packer::png() {
-    GEODE_UNWRAP_INTO(auto pngData, toPNG(m_image.data.data(), m_image.width, m_image.height));
+    GEODE_UNWRAP_INTO(auto pngData, toPNG(m_image));
     return Ok(pngData);
 }
 
 Result<> Packer::png(const std::filesystem::path& path) {
-    GEODE_UNWRAP(toPNG(path, m_image.data.data(), m_image.width, m_image.height));
+    GEODE_UNWRAP(toPNG(path, m_image));
     return Ok();
 }
 
-Result<Image> texpack::fromPNG(const uint8_t* data, size_t size) {
+Result<Image> texpack::fromPNG(std::span<const uint8_t> data) {
     auto ctx = spng_ctx_new(0);
     if (!ctx) return Err("Failed to create PNG context");
 
-    if (auto result = spng_set_png_buffer(ctx, data, size)) {
+    if (auto result = spng_set_png_buffer(ctx, data.data(), data.size())) {
         spng_ctx_free(ctx);
         return Err(std::string("Failed to set PNG buffer: ") + spng_strerror(result));
     }
@@ -290,11 +286,11 @@ Result<Image> texpack::fromPNG(const std::filesystem::path& path) {
     if (!file.is_open()) return Err("Failed to open file");
     std::vector<uint8_t> data((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
     file.close();
-    GEODE_UNWRAP_INTO(auto image, fromPNG(data.data(), data.size()));
+    GEODE_UNWRAP_INTO(auto image, fromPNG(data));
     return Ok(image);
 }
 
-Result<std::vector<uint8_t>> texpack::toPNG(const uint8_t* data, uint32_t width, uint32_t height) {
+Result<std::vector<uint8_t>> texpack::toPNG(std::span<const uint8_t> data, uint32_t width, uint32_t height) {
     auto ctx = spng_ctx_new(SPNG_CTX_ENCODER);
     if (!ctx) return Err("Failed to create PNG context");
 
@@ -309,7 +305,7 @@ Result<std::vector<uint8_t>> texpack::toPNG(const uint8_t* data, uint32_t width,
         return Err(std::string("Failed to set image header: ") + spng_strerror(result));
     }
 
-    if (auto result = spng_encode_image(ctx, data, width * height * 4, SPNG_FMT_PNG, SPNG_ENCODE_FINALIZE)) {
+    if (auto result = spng_encode_image(ctx, data.data(), width * height * 4, SPNG_FMT_PNG, SPNG_ENCODE_FINALIZE)) {
         spng_ctx_free(ctx);
         return Err(std::string("Failed to encode image: ") + spng_strerror(result));
     }
@@ -332,11 +328,21 @@ Result<std::vector<uint8_t>> texpack::toPNG(const uint8_t* data, uint32_t width,
     return Ok(pngData);
 }
 
-Result<> texpack::toPNG(const std::filesystem::path& path, const uint8_t* data, uint32_t width, uint32_t height) {
+Result<std::vector<uint8_t>> texpack::toPNG(const Image& image) {
+    GEODE_UNWRAP_INTO(auto pngData, toPNG(image.data, image.width, image.height));
+    return Ok(pngData);
+}
+
+Result<> texpack::toPNG(const std::filesystem::path& path, std::span<const uint8_t> data, uint32_t width, uint32_t height) {
     GEODE_UNWRAP_INTO(auto pngData, toPNG(data, width, height));
     std::ofstream file(path, std::ios::binary);
     if (!file.is_open()) return Err("Failed to open file");
     file.write(reinterpret_cast<const char*>(pngData.data()), pngData.size());
     file.close();
+    return Ok();
+}
+
+Result<> texpack::toPNG(const std::filesystem::path& path, const Image& image) {
+    GEODE_UNWRAP(toPNG(path, image.data, image.width, image.height));
     return Ok();
 }

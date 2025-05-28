@@ -38,6 +38,7 @@
 **/build**
 **/out**
 test/images/**
+test/compare/**
 
 # Sublime Text
 *.tmlanguage.cache

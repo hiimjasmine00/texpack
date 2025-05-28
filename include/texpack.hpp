@@ -3,6 +3,7 @@
 
 #include <filesystem>
 #include <Geode/Result.hpp>
+#include <span>
 #include <vector>
 
 namespace texpack {
@@ -20,6 +21,10 @@ namespace texpack {
             x = other.x;
             y = other.y;
             return *this;
+        }
+
+        bool operator==(const Point& other) const {
+            return x == other.x && y == other.y;
         }
 
         /// Converts the point to a string representation.
@@ -45,6 +50,10 @@ namespace texpack {
             return *this;
         }
 
+        bool operator==(const Size& other) const {
+            return width == other.width && height == other.height;
+        }
+
         /// Converts the size to a string representation.
         /// @returns A string in the format "{width,height}".
         std::string string() const {
@@ -67,6 +76,10 @@ namespace texpack {
             origin = other.origin;
             size = other.size;
             return *this;
+        }
+
+        bool operator==(const Rect& other) const {
+            return origin == other.origin && size == other.size;
         }
 
         /// Converts the rectangle to a string representation.
@@ -94,9 +107,12 @@ namespace texpack {
         uint32_t height;
 
         Image() : data(), width(0), height(0) {}
-        Image(const uint8_t* data, uint32_t width, uint32_t height) : data(data, data + width * height * 4), width(width), height(height) {}
-        Image(const std::vector<uint8_t>& data, uint32_t width, uint32_t height) : data(data), width(width), height(height) {}
+        Image(std::span<const uint8_t> data, uint32_t width, uint32_t height) : data(data.begin(), data.end()), width(width), height(height) {}
         Image(const Image& other) : data(other.data), width(other.width), height(other.height) {}
+        Image(Image&& other) : data(std::move(other.data)), width(other.width), height(other.height) {
+            other.width = 0;
+            other.height = 0;
+        }
 
         Image& operator=(const Image& other) {
             data = other.data;
@@ -114,20 +130,27 @@ namespace texpack {
         int m_capacity;
     public:
         Packer(int capacity = 10000) : m_capacity(capacity) {}
+        Packer(Packer&& other) : m_frames(std::move(other.m_frames)), m_image(std::move(other.m_image)), m_capacity(other.m_capacity) {
+            other.m_capacity = 0;
+        }
 
         /// Adds a frame to the packer.
         /// @param name The name of the frame.
         /// @param data The pixel data of the frame, in RGBA8888 format.
         /// @param width The width of the frame.
         /// @param height The height of the frame.
-        void frame(std::string_view name, const uint8_t* data, uint32_t width, uint32_t height);
+        void frame(std::string_view name, std::span<const uint8_t> data, uint32_t width, uint32_t height);
+
+        /// Adds a frame to the packer from an RGBA8888 image.
+        /// @param name The name of the frame.
+        /// @param image An RGBA8888 image.
+        void frame(std::string_view name, const Image& image);
 
         /// Adds a frame to the packer from PNG data.
         /// @param name The name of the frame.
         /// @param data The PNG data of the frame.
-        /// @param size The size of the PNG data.
         /// @returns An error if the PNG data cannot be decoded.
-        geode::Result<> frame(std::string_view name, const uint8_t* data, size_t size);
+        geode::Result<> frame(std::string_view name, std::span<const uint8_t> data);
 
         /// Adds a frame to the packer from a PNG file.
         /// @param name The name of the frame.
@@ -190,9 +213,8 @@ namespace texpack {
 
     /// Creates an RGBA8888 image from PNG data.
     /// @param data The PNG data.
-    /// @param size The size of the PNG data.
     /// @returns The decoded image, or an error if the decoding fails.
-    geode::Result<Image> fromPNG(const uint8_t* data, size_t size);
+    geode::Result<Image> fromPNG(std::span<const uint8_t> data);
 
     /// Creates an RGBA8888 image from a PNG file.
     /// @param path The path to the PNG file.
@@ -204,7 +226,12 @@ namespace texpack {
     /// @param width The width of the image.
     /// @param height The height of the image.
     /// @returns A vector of bytes containing the PNG data, or an error if the encoding fails.
-    geode::Result<std::vector<uint8_t>> toPNG(const uint8_t* data, uint32_t width, uint32_t height);
+    geode::Result<std::vector<uint8_t>> toPNG(std::span<const uint8_t> data, uint32_t width, uint32_t height);
+
+    /// Creates a PNG representation of the given imagw.
+    /// @param image An RGBA8888 image.
+    /// @returns A vector of bytes containing the PNG data, or an error if the encoding fails.
+    geode::Result<std::vector<uint8_t>> toPNG(const Image& image);
 
     /// Saves the PNG representation of the given pixel data to a file.
     /// @param path The path to the file where the PNG will be saved.
@@ -212,7 +239,13 @@ namespace texpack {
     /// @param width The width of the image.
     /// @param height The height of the image.
     /// @returns An error if the encoding fails or the file cannot be opened.
-    geode::Result<> toPNG(const std::filesystem::path& path, const uint8_t* data, uint32_t width, uint32_t height);
+    geode::Result<> toPNG(const std::filesystem::path& path, std::span<const uint8_t> data, uint32_t width, uint32_t height);
+
+    /// Saves the PNG representation of the given image to a file.
+    /// @param path The path to the file where the PNG will be saved.
+    /// @param image An RGBA8888 image.
+    /// @returns An error if the encoding fails or the file cannot be opened.
+    geode::Result<> toPNG(const std::filesystem::path& path, const Image& image);
 }
 
 #endif
