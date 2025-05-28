@@ -120,6 +120,14 @@ namespace texpack {
             height = other.height;
             return *this;
         }
+        Image& operator=(Image&& other) {
+            data = std::move(other.data);
+            width = other.width;
+            height = other.height;
+            other.width = 0;
+            other.height = 0;
+            return *this;
+        }
     };
 
     /// A class for packing frames into a texture atlas, with maximum dimensions.
@@ -130,8 +138,23 @@ namespace texpack {
         int m_capacity;
     public:
         Packer(int capacity = 10000) : m_capacity(capacity) {}
+        Packer(const Packer& other) : m_frames(other.m_frames), m_image(other.m_image), m_capacity(other.m_capacity) {}
         Packer(Packer&& other) : m_frames(std::move(other.m_frames)), m_image(std::move(other.m_image)), m_capacity(other.m_capacity) {
             other.m_capacity = 0;
+        }
+
+        Packer& operator=(const Packer& other) {
+            m_frames = other.m_frames;
+            m_image = other.m_image;
+            m_capacity = other.m_capacity;
+            return *this;
+        }
+        Packer& operator=(Packer&& other) {
+            m_frames = std::move(other.m_frames);
+            m_image = std::move(other.m_image);
+            m_capacity = other.m_capacity;
+            other.m_capacity = 0;
+            return *this;
         }
 
         /// Adds a frame to the packer.
