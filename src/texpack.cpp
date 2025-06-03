@@ -278,6 +278,15 @@ Result<Image> texpack::fromPNG(std::span<const uint8_t> data) {
     }
 
     spng_ctx_free(ctx);
+
+    for (size_t i = 0; i < image.size(); i += 4) {
+        if (image[i + 3] == 0) {
+            image[i] = 0;
+            image[i + 1] = 0;
+            image[i + 2] = 0;
+        }
+    }
+
     return Ok<Image>({ image, ihdr.width, ihdr.height });
 }
 
