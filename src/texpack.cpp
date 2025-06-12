@@ -1,16 +1,20 @@
-#include <texpack.hpp>
 #include <cmath>
 #include <fstream>
+#ifdef TEXPACK_PUGIXML
 #define pugi _pugi
 #include <pugixml.hpp>
 #undef pugi
+namespace pugi = _pugi;
+#else
+#include <pugixml.hpp>
+#endif
 #include <rectpack2D/finders_interface.h>
 #include <spng.h>
+#include <texpack.hpp>
 
 using namespace texpack;
 using namespace geode;
 using namespace rectpack2D;
-namespace pugi = _pugi;
 
 void Packer::frame(std::string_view name, std::span<const uint8_t> data, uint32_t width, uint32_t height) {
     auto it = std::ranges::find_if(m_frames, [&name](const Frame& frame) { return frame.name == name; });

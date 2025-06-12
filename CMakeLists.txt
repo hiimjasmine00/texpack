@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(texpack VERSION 0.2.2)
+project(texpack VERSION 0.2.3)
 
 add_library(texpack
     src/texpack.cpp
@@ -32,6 +32,7 @@ target_link_libraries(texpack PUBLIC GeodeResult)
 
 if (TEXPACK_PUGIXML)
     target_compile_definitions(pugixml-static PRIVATE pugi=_pugi)
+    target_compile_definitions(texpack PRIVATE TEXPACK_PUGIXML)
 endif()
 target_compile_definitions(texpack PRIVATE SPNG_USE_MINIZ SPNG_STATIC)
 target_include_directories(texpack PRIVATE
