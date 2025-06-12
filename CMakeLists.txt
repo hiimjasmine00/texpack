@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(texpack VERSION 0.2.1)
+project(texpack VERSION 0.2.2)
 
 add_library(texpack
     src/texpack.cpp
@@ -17,6 +17,7 @@ if (NOT TARGET GeodeResult)
 endif()
 
 if (NOT TARGET pugixml AND NOT TARGET pugixml-static)
+    set(TEXPACK_PUGIXML ON)
     CPMAddPackage("gh:zeux/pugixml@1.15")
 endif()
 
@@ -29,7 +30,9 @@ target_compile_features(texpack PUBLIC cxx_std_20)
 target_include_directories(texpack PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(texpack PUBLIC GeodeResult)
 
-target_compile_definitions(pugixml-static PRIVATE pugi=_pugi)
+if (TEXPACK_PUGIXML)
+    target_compile_definitions(pugixml-static PRIVATE pugi=_pugi)
+endif()
 target_compile_definitions(texpack PRIVATE SPNG_USE_MINIZ SPNG_STATIC)
 target_include_directories(texpack PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/miniz
