@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(texpack VERSION 0.2.3)
+project(texpack VERSION 0.2.4)
 
 add_library(texpack
     src/texpack.cpp
@@ -39,7 +39,13 @@ target_include_directories(texpack PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/miniz
     ${CMAKE_CURRENT_SOURCE_DIR}/spng
 )
-target_link_libraries(texpack PRIVATE pugixml-static rectpack2D)
+if (TEXPACK_PUGIXML)
+    target_link_libraries(texpack PRIVATE pugixml-static)
+else()
+    target_link_libraries(texpack PUBLIC pugixml-static)
+endif()
+
+target_link_libraries(texpack PRIVATE rectpack2D)
 
 if (PROJECT_IS_TOP_LEVEL)
     add_subdirectory(test)
