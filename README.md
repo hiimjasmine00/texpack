@@ -6,7 +6,7 @@ This library can be included using [CPM.cmake](https://github.com/cpm-cmake/CPM.
 ```cmake
 # Add texpack to your project
 # Note: If you are using the pugixml library, you must add it before texpack
-CPMAddPackage("gh:hiimjasmine00/texpack@0.2.4")
+CPMAddPackage("gh:hiimjasmine00/texpack@0.3.0")
 
 # Add the library to your target
 target_link_libraries(${PROJECT_NAME} texpack)

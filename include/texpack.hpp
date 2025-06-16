@@ -167,19 +167,23 @@ namespace texpack {
         /// Adds a frame to the packer from an RGBA8888 image.
         /// @param name The name of the frame.
         /// @param image An RGBA8888 image.
-        void frame(std::string_view name, const Image& image);
+        void frame(std::string_view name, const Image& image) {
+            frame(name, image.data, image.width, image.height);
+        }
 
         /// Adds a frame to the packer from PNG data.
         /// @param name The name of the frame.
         /// @param data The PNG data of the frame.
+        /// @param premultiplyAlpha Whether to premultiply the alpha channel. (Default: false)
         /// @returns An error if the PNG data cannot be decoded.
-        geode::Result<> frame(std::string_view name, std::span<const uint8_t> data);
+        geode::Result<> frame(std::string_view name, std::span<const uint8_t> data, bool premultiplyAlpha = false);
 
         /// Adds a frame to the packer from a PNG file.
         /// @param name The name of the frame.
         /// @param path The path to the PNG file.
+        /// @param premultiplyAlpha Whether to premultiply the alpha channel. (Default: false)
         /// @returns An error if the file cannot be opened or the PNG data cannot be decoded.
-        geode::Result<> frame(std::string_view name, const std::filesystem::path& path);
+        geode::Result<> frame(std::string_view name, const std::filesystem::path& path, bool premultiplyAlpha = false);
 
         /// Gets a frame from the packer by its name.
         /// @param name The name of the frame.
@@ -236,13 +240,15 @@ namespace texpack {
 
     /// Creates an RGBA8888 image from PNG data.
     /// @param data The PNG data.
+    /// @param premultiplyAlpha Whether to premultiply the alpha channel. (Default: false)
     /// @returns The decoded image, or an error if the decoding fails.
-    geode::Result<Image> fromPNG(std::span<const uint8_t> data);
+    geode::Result<Image> fromPNG(std::span<const uint8_t> data, bool premultiplyAlpha = false);
 
     /// Creates an RGBA8888 image from a PNG file.
     /// @param path The path to the PNG file.
+    /// @param premultiplyAlpha Whether to premultiply the alpha channel. (Default: false)
     /// @returns The decoded image, or an error if the file cannot be opened or the decoding fails.
-    geode::Result<Image> fromPNG(const std::filesystem::path& path);
+    geode::Result<Image> fromPNG(const std::filesystem::path& path, bool premultiplyAlpha = false);
 
     /// Creates a PNG representation of the given pixel data.
     /// @param data The pixel data in RGBA8888 format.
@@ -254,7 +260,9 @@ namespace texpack {
     /// Creates a PNG representation of the given imagw.
     /// @param image An RGBA8888 image.
     /// @returns A vector of bytes containing the PNG data, or an error if the encoding fails.
-    geode::Result<std::vector<uint8_t>> toPNG(const Image& image);
+    inline geode::Result<std::vector<uint8_t>> toPNG(const Image& image) {
+        return toPNG(image.data, image.width, image.height);
+    }
 
     /// Saves the PNG representation of the given pixel data to a file.
     /// @param path The path to the file where the PNG will be saved.
@@ -268,7 +276,9 @@ namespace texpack {
     /// @param path The path to the file where the PNG will be saved.
     /// @param image An RGBA8888 image.
     /// @returns An error if the encoding fails or the file cannot be opened.
-    geode::Result<> toPNG(const std::filesystem::path& path, const Image& image);
+    inline geode::Result<> toPNG(const std::filesystem::path& path, const Image& image) {
+        return toPNG(path, image.data, image.width, image.height);
+    }
 }
 
 #endif

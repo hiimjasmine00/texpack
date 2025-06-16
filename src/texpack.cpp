@@ -97,19 +97,15 @@ void Packer::frame(std::string_view name, std::span<const uint8_t> data, uint32_
     m_frames.push_back(std::move(frame));
 }
 
-void Packer::frame(std::string_view name, const Image& image) {
-    frame(name, image.data, image.width, image.height);
-}
-
-Result<> Packer::frame(std::string_view name, std::span<const uint8_t> data) {
-    GEODE_UNWRAP_INTO(auto image, fromPNG(data));
-    frame(name, image.data, image.width, image.height);
+Result<> Packer::frame(std::string_view name, std::span<const uint8_t> data, bool premultiplyAlpha) {
+    GEODE_UNWRAP_INTO(auto image, fromPNG(data, premultiplyAlpha));
+    frame(name, image);
     return Ok();
 }
 
-Result<> Packer::frame(std::string_view name, const std::filesystem::path& path) {
-    GEODE_UNWRAP_INTO(auto image, fromPNG(path));
-    frame(name, image.data, image.width, image.height);
+Result<> Packer::frame(std::string_view name, const std::filesystem::path& path, bool premultiplyAlpha) {
+    GEODE_UNWRAP_INTO(auto image, fromPNG(path, premultiplyAlpha));
+    frame(name, image);
     return Ok();
 }
 
@@ -245,16 +241,20 @@ Result<> Packer::plist(const std::filesystem::path& path, const std::string& nam
 }
 
 Result<std::vector<uint8_t>> Packer::png() {
-    GEODE_UNWRAP_INTO(auto pngData, toPNG(m_image));
-    return Ok(pngData);
+    return toPNG(m_image);
 }
 
 Result<> Packer::png(const std::filesystem::path& path) {
-    GEODE_UNWRAP(toPNG(path, m_image));
-    return Ok();
+    return toPNG(path, m_image);
 }
 
-Result<Image> texpack::fromPNG(std::span<const uint8_t> data) {
+Result<Image> texpack::fromPNG(std::span<const uint8_t> data, bool premultiplyAlpha) {
+    if (
+        data.size() < 8 ||
+        data[0] != 137 || data[1] != 80 || data[2] != 78 || data[3] != 71 ||
+        data[4] != 13 || data[5] != 10 || data[6] != 26 || data[7] != 10
+    ) return Err("Invalid PNG data");
+
     auto ctx = spng_ctx_new(0);
     if (!ctx) return Err("Failed to create PNG context");
 
@@ -283,24 +283,24 @@ Result<Image> texpack::fromPNG(std::span<const uint8_t> data) {
 
     spng_ctx_free(ctx);
 
-    for (size_t i = 0; i < image.size(); i += 4) {
-        if (image[i + 3] == 0) {
-            image[i] = 0;
-            image[i + 1] = 0;
-            image[i + 2] = 0;
+    if (premultiplyAlpha) {
+        for (size_t i = 0; i < image.size(); i += 4) {
+            auto alpha = image[i + 3] / 255.0;
+            image[i] *= alpha;
+            image[i + 1] *= alpha;
+            image[i + 2] *= alpha;
         }
     }
 
     return Ok<Image>({ image, ihdr.width, ihdr.height });
 }
 
-Result<Image> texpack::fromPNG(const std::filesystem::path& path) {
+Result<Image> texpack::fromPNG(const std::filesystem::path& path, bool premultiplyAlpha) {
     std::ifstream file(path, std::ios::binary);
     if (!file.is_open()) return Err("Failed to open file");
     std::vector<uint8_t> data((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
     file.close();
-    GEODE_UNWRAP_INTO(auto image, fromPNG(data));
-    return Ok(image);
+    return fromPNG(data, premultiplyAlpha);
 }
 
 Result<std::vector<uint8_t>> texpack::toPNG(std::span<const uint8_t> data, uint32_t width, uint32_t height) {
@@ -341,21 +341,11 @@ Result<std::vector<uint8_t>> texpack::toPNG(std::span<const uint8_t> data, uint3
     return Ok(pngData);
 }
 
-Result<std::vector<uint8_t>> texpack::toPNG(const Image& image) {
-    GEODE_UNWRAP_INTO(auto pngData, toPNG(image.data, image.width, image.height));
-    return Ok(pngData);
-}
-
 Result<> texpack::toPNG(const std::filesystem::path& path, std::span<const uint8_t> data, uint32_t width, uint32_t height) {
     GEODE_UNWRAP_INTO(auto pngData, toPNG(data, width, height));
     std::ofstream file(path, std::ios::binary);
     if (!file.is_open()) return Err("Failed to open file");
     file.write(reinterpret_cast<const char*>(pngData.data()), pngData.size());
     file.close();
-    return Ok();
-}
-
-Result<> texpack::toPNG(const std::filesystem::path& path, const Image& image) {
-    GEODE_UNWRAP(toPNG(path, image.data, image.width, image.height));
     return Ok();
 }
