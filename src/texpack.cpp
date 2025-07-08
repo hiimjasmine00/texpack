@@ -1,13 +1,5 @@
-#include <cmath>
 #include <fstream>
-#ifdef TEXPACK_PUGIXML
-#define pugi _pugi
-#include <pugixml.hpp>
-#undef pugi
-namespace pugi = _pugi;
-#else
-#include <pugixml.hpp>
-#endif
+#include "pugixml.hpp"
 #include <rectpack2D/finders_interface.h>
 #include <spng.h>
 #include <texpack.hpp>
@@ -48,7 +40,7 @@ void Packer::frame(std::string_view name, std::span<const uint8_t> data, uint32_
         }
         if (right != 0) break;
     }
-    right = std::min(right, (int)width);
+    right = std::min<int>(right, width);
 
     if (left >= right) right = left + 1;
 
@@ -74,14 +66,14 @@ void Packer::frame(std::string_view name, std::span<const uint8_t> data, uint32_
         }
         if (bottom != 0) break;
     }
-    bottom = std::min(bottom, (int)height);
+    bottom = std::min<int>(bottom, height);
 
     if (top >= bottom) bottom = top + 1;
 
     auto w = right - left;
     auto h = bottom - top;
-    frame.offset.x = left - (int)round((width - w) / 2.0);
-    frame.offset.y = (int)round((height - h) / 2.0) - top;
+    frame.offset.x = left - (width - w) / 2 - (width % 2 != w % 2);
+    frame.offset.y = (height - h) / 2 + (height % 2 != h % 2) - top;
     frame.data.resize(w * h * 4);
 
     for (int x = 0; x < w * 4; x++) {
@@ -95,6 +87,12 @@ void Packer::frame(std::string_view name, std::span<const uint8_t> data, uint32_
     frame.rotated = false;
 
     m_frames.push_back(std::move(frame));
+}
+
+Result<> Packer::frame(std::string_view name, std::istream& stream, bool premultiplyAlpha) {
+    GEODE_UNWRAP_INTO(auto image, fromPNG(stream, premultiplyAlpha));
+    frame(name, image);
+    return Ok();
 }
 
 Result<> Packer::frame(std::string_view name, std::span<const uint8_t> data, bool premultiplyAlpha) {
@@ -193,7 +191,7 @@ Result<> Packer::pack() {
     return Ok();
 }
 
-std::string Packer::plist(const std::string& name, std::string_view indent) {
+void Packer::plist(std::ostream& stream, std::string_view name, std::string_view indent) {
     pugi::xml_document doc;
     auto root = doc.append_child("plist");
     root.append_attribute("version") = "1.0";
@@ -227,17 +225,25 @@ std::string Packer::plist(const std::string& name, std::string_view indent) {
     metadata.append_child("key").text() = "textureFileName";
     metadata.append_child("string").text() = name;
 
+    doc.save(stream, indent.data());
+}
+
+std::string Packer::plist(std::string_view name, std::string_view indent) {
     std::ostringstream writer;
-    doc.save(writer, indent.data());
+    plist(writer, name, indent);
     return writer.str();
 }
 
-Result<> Packer::plist(const std::filesystem::path& path, const std::string& name, std::string_view indent) {
+Result<> Packer::plist(const std::filesystem::path& path, std::string_view name, std::string_view indent) {
     std::ofstream file(path);
     if (!file.is_open()) return Err("Failed to open file");
-    file << plist(name, indent);
+    plist(file, name, indent);
     file.close();
     return Ok();
+}
+
+Result<> Packer::png(std::ostream& stream) {
+    return toPNG(stream, m_image);
 }
 
 Result<std::vector<uint8_t>> Packer::png() {
@@ -246,6 +252,10 @@ Result<std::vector<uint8_t>> Packer::png() {
 
 Result<> Packer::png(const std::filesystem::path& path) {
     return toPNG(path, m_image);
+}
+
+Result<Image> texpack::fromPNG(std::istream& stream, bool premultiplyAlpha) {
+    return fromPNG(std::vector<uint8_t>(std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()), premultiplyAlpha);
 }
 
 Result<Image> texpack::fromPNG(std::span<const uint8_t> data, bool premultiplyAlpha) {
@@ -298,9 +308,13 @@ Result<Image> texpack::fromPNG(std::span<const uint8_t> data, bool premultiplyAl
 Result<Image> texpack::fromPNG(const std::filesystem::path& path, bool premultiplyAlpha) {
     std::ifstream file(path, std::ios::binary);
     if (!file.is_open()) return Err("Failed to open file");
-    std::vector<uint8_t> data((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-    file.close();
-    return fromPNG(data, premultiplyAlpha);
+    return fromPNG(file, premultiplyAlpha);
+}
+
+Result<> texpack::toPNG(std::ostream& stream, std::span<const uint8_t> data, uint32_t width, uint32_t height) {
+    GEODE_UNWRAP_INTO(auto pngData, toPNG(data, width, height));
+    stream.write(reinterpret_cast<const char*>(pngData.data()), pngData.size());
+    return Ok();
 }
 
 Result<std::vector<uint8_t>> texpack::toPNG(std::span<const uint8_t> data, uint32_t width, uint32_t height) {

@@ -5,8 +5,7 @@ A C++ library for combining textures into Cocos-style spritesheets.
 This library can be included using [CPM.cmake](https://github.com/cpm-cmake/CPM.cmake).
 ```cmake
 # Add texpack to your project
-# Note: If you are using the pugixml library, you must add it before texpack
-CPMAddPackage("gh:hiimjasmine00/texpack@0.3.0")
+CPMAddPackage("gh:hiimjasmine00/texpack@0.4.0")
 
 # Add the library to your target
 target_link_libraries(${PROJECT_NAME} texpack)
@@ -31,7 +30,7 @@ packer.pack();
 packer.png("path/to/spritesheet.png");
 
 // Save the spritesheet to a property list file
-packer.plist("path/to/spritesheet.plist");
+packer.plist("path/to/spritesheet.plist", "spritesheet.png");
 ```
 
 ## License

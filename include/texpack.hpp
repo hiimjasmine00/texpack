@@ -171,6 +171,13 @@ namespace texpack {
             frame(name, image.data, image.width, image.height);
         }
 
+        /// Adds a frame to the packer from an input stream.
+        /// @param name The name of the frame.
+        /// @param stream The input stream containing the PNG data.
+        /// @param premultiplyAlpha Whether to premultiply the alpha channel. (Default: false)
+        /// @returns An error if the PNG data cannot be decoded.
+        geode::Result<> frame(std::string_view name, std::istream& stream, bool premultiplyAlpha = false);
+
         /// Adds a frame to the packer from PNG data.
         /// @param name The name of the frame.
         /// @param data The PNG data of the frame.
@@ -215,28 +222,45 @@ namespace texpack {
         /// @returns An error if the packing process fails.
         geode::Result<> pack();
 
+        /// Saves a property list representation of the frames to an output stream.
+        /// @param stream The output stream where the property list will be saved.
+        /// @param name The name of the texture atlas.
+        /// @param indent The string used for indentation in the property list. (Default: "\t")
+        void plist(std::ostream& stream, std::string_view name, std::string_view indent = "\t");
+
         /// Generates a property list representation of the frames.
         /// @param name The name of the texture atlas.
         /// @param indent The string used for indentation in the property list. (Default: "\t")
         /// @returns A string containing the property list representation of the frames.
-        std::string plist(const std::string& name, std::string_view indent = "\t");
+        std::string plist(std::string_view name, std::string_view indent = "\t");
 
-        /// Saves the property list representation of the frames to a file.
+        /// Saves a property list representation of the frames to a file.
         /// @param path The path to the file where the property list will be saved.
         /// @param name The name of the texture atlas.
         /// @param indent The string used for indentation in the property list. (Default: "\t")
         /// @returns An error if the file cannot be opened or written to.
-        geode::Result<> plist(const std::filesystem::path& path, const std::string& name, std::string_view indent = "\t");
+        geode::Result<> plist(const std::filesystem::path& path, std::string_view name, std::string_view indent = "\t");
+
+        /// Saves a PNG representation of the packed frames to an output stream.
+        /// @param stream The output stream where the PNG will be saved.
+        /// @returns An error if the encoding fails or the stream cannot be written to.
+        geode::Result<> png(std::ostream& stream);
 
         /// Generates a PNG representation of the packed frames.
         /// @returns A vector of bytes containing the PNG data, or an error if the encoding fails.
         geode::Result<std::vector<uint8_t>> png();
 
-        /// Saves the PNG representation of the packed frames to a file.
+        /// Saves a PNG representation of the packed frames to a file.
         /// @param path The path to the file where the PNG will be saved.
         /// @returns An error if the encoding fails or the file cannot be opened.
         geode::Result<> png(const std::filesystem::path& path);
     };
+
+    /// Creates an RGBA8888 image from an input stream.
+    /// @param stream The input stream containing the PNG data.
+    /// @param premultiplyAlpha Whether to premultiply the alpha channel. (Default: false)
+    /// @returns The decoded image, or an error if the decoding fails.
+    geode::Result<Image> fromPNG(std::istream& stream, bool premultiplyAlpha = false);
 
     /// Creates an RGBA8888 image from PNG data.
     /// @param data The PNG data.
@@ -249,6 +273,22 @@ namespace texpack {
     /// @param premultiplyAlpha Whether to premultiply the alpha channel. (Default: false)
     /// @returns The decoded image, or an error if the file cannot be opened or the decoding fails.
     geode::Result<Image> fromPNG(const std::filesystem::path& path, bool premultiplyAlpha = false);
+
+    /// Saves a PNG representation of the given pixel data to an output stream.
+    /// @param stream The output stream where the PNG will be saved.
+    /// @param data The pixel data in RGBA8888 format.
+    /// @param width The width of the image.
+    /// @param height The height of the image.
+    /// @returns An error if the encoding fails or the stream cannot be written to.
+    geode::Result<> toPNG(std::ostream& stream, std::span<const uint8_t> data, uint32_t width, uint32_t height);
+
+    /// Saves a PNG representation of the given image to an output stream.
+    /// @param stream The output stream where the PNG will be saved.
+    /// @param image An RGBA8888 image.
+    /// @returns An error if the encoding fails or the stream cannot be written to.
+    inline geode::Result<> toPNG(std::ostream& stream, const Image& image) {
+        return toPNG(stream, image.data, image.width, image.height);
+    }
 
     /// Creates a PNG representation of the given pixel data.
     /// @param data The pixel data in RGBA8888 format.
@@ -264,7 +304,7 @@ namespace texpack {
         return toPNG(image.data, image.width, image.height);
     }
 
-    /// Saves the PNG representation of the given pixel data to a file.
+    /// Saves a PNG representation of the given pixel data to a file.
     /// @param path The path to the file where the PNG will be saved.
     /// @param data The pixel data in RGBA8888 format.
     /// @param width The width of the image.
@@ -272,7 +312,7 @@ namespace texpack {
     /// @returns An error if the encoding fails or the file cannot be opened.
     geode::Result<> toPNG(const std::filesystem::path& path, std::span<const uint8_t> data, uint32_t width, uint32_t height);
 
-    /// Saves the PNG representation of the given image to a file.
+    /// Saves a PNG representation of the given image to a file.
     /// @param path The path to the file where the PNG will be saved.
     /// @param image An RGBA8888 image.
     /// @returns An error if the encoding fails or the file cannot be opened.
