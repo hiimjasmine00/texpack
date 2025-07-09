@@ -20,7 +20,7 @@ if (NOT TARGET rectpack2D)
 endif()
 
 if (NOT TARGET spng)
-    CPMAddPackage("gh:hiimjasmine00/libspng#224eda9")
+    CPMAddPackage("gh:hiimjasmine00/libspng#73f9764")
 endif()
 
 target_compile_features(texpack PUBLIC cxx_std_20)
