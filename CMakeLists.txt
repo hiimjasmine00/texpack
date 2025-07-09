@@ -20,19 +20,13 @@ if (NOT TARGET rectpack2D)
 endif()
 
 if (NOT TARGET spng)
-    if (NOT TARGET miniz)
-        CPMAddPackage("gh:hiimjasmine00/miniz#4eef673")
-    endif()
-
-    CPMAddPackage("gh:hiimjasmine00/libspng#d5bc7d9")
-    target_compile_definitions(spng_static PRIVATE SPNG_USE_MINIZ)
-    target_include_directories(spng_static PRIVATE ${miniz_SOURCE_DIR})
+    CPMAddPackage("gh:hiimjasmine00/libspng#1299e94")
 endif()
 
 target_compile_features(texpack PUBLIC cxx_std_20)
 
 target_include_directories(texpack PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_link_libraries(texpack PUBLIC GeodeResult miniz rectpack2D spng_static)
+target_link_libraries(texpack PUBLIC GeodeResult rectpack2D spng_static)
 
 if (PROJECT_IS_TOP_LEVEL)
     add_subdirectory(test)
