@@ -1,5 +1,5 @@
 # texpack
-A C++ library for combining textures into Cocos-style spritesheets.
+A C++ library for combining textures into Zwoptex spritesheets. (If you don't know what those are, they're used by Cocos2d-x v2 and other game engines.)
 
 ## Inclusion
 This library can be included using [CPM.cmake](https://github.com/cpm-cmake/CPM.cmake).
