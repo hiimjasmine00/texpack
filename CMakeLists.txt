@@ -21,7 +21,7 @@ endif()
 
 if (NOT TARGET spng)
     if (NOT TARGET miniz)
-        CPMAddPackage("gh:hiimjasmine00/miniz#56e71de")
+        CPMAddPackage("gh:hiimjasmine00/miniz#4eef673")
     endif()
 
     CPMAddPackage("gh:hiimjasmine00/libspng#d5bc7d9")
