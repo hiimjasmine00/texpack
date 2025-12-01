@@ -219,8 +219,9 @@ namespace texpack {
         const Image& image() const { return m_image; }
 
         /// Finalizes the packing process, arranging the frames into a texture atlas.
+        /// @param padding The amount of padding to leave between frames (in pixels). (Default: 2)
         /// @returns An error if the packing process fails.
-        geode::Result<> pack();
+        geode::Result<> pack(int padding = 2);
 
         /// Saves a property list representation of the frames to an output stream.
         /// @param stream The output stream where the property list will be saved.

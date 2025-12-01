@@ -5,7 +5,7 @@ A C++ library for combining textures into Zwoptex spritesheets. (If you don't kn
 This library can be included using [CPM.cmake](https://github.com/cpm-cmake/CPM.cmake).
 ```cmake
 # Add texpack to your project
-CPMAddPackage("gh:hiimjasmine00/texpack@0.4.0")
+CPMAddPackage("gh:hiimjasmine00/texpack@0.5.0")
 
 # Add the library to your target
 target_link_libraries(${PROJECT_NAME} texpack)
@@ -24,7 +24,7 @@ texpack::Packer packer(10000);
 packer.frame("example", "path/to/texture.png");
 
 // Pack the textures into a spritesheet
-packer.pack();
+packer.pack(2); // Leave empty for 2 pixels of padding
 
 // Save the spritesheet to a PNG file
 packer.png("path/to/spritesheet.png");

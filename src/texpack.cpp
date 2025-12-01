@@ -9,7 +9,7 @@ using namespace geode;
 using namespace rectpack2D;
 
 void Packer::frame(std::string_view name, std::span<const uint8_t> data, uint32_t width, uint32_t height) {
-    auto it = std::ranges::find_if(m_frames, [&name](const Frame& frame) { return frame.name == name; });
+    auto it = std::ranges::find_if(m_frames, [name](const Frame& frame) { return frame.name == name; });
     if (it != m_frames.end()) m_frames.erase(it, m_frames.end());
 
     Frame frame;
@@ -108,20 +108,20 @@ Result<> Packer::frame(std::string_view name, const std::filesystem::path& path,
 }
 
 Result<Frame&> Packer::frame(std::string_view name) {
-    auto it = std::ranges::find_if(m_frames, [&name](const Frame& frame) { return frame.name == name; });
+    auto it = std::ranges::find_if(m_frames, [name](const Frame& frame) { return frame.name == name; });
     if (it == m_frames.end()) return Err("Frame not found");
 
     return Ok(*it);
 }
 
 Result<const Frame&> Packer::frame(std::string_view name) const {
-    auto it = std::ranges::find_if(m_frames, [&name](const Frame& frame) { return frame.name == name; });
+    auto it = std::ranges::find_if(m_frames, [name](const Frame& frame) { return frame.name == name; });
     if (it == m_frames.end()) return Err("Frame not found");
 
     return Ok(*it);
 }
 
-Result<> Packer::pack() {
+Result<> Packer::pack(int padding) {
     if (m_frames.empty()) return Ok();
 
     std::ranges::sort(m_frames, [](const Frame& a, const Frame& b) {
@@ -130,8 +130,9 @@ Result<> Packer::pack() {
 
     std::vector<rect_xywhf> rects;
     rects.reserve(m_frames.size());
+    auto doublePadding = padding * 2;
     for (auto& frame : m_frames) {
-        rects.emplace_back(0, 0, frame.rect.size.width, frame.rect.size.height, false);
+        rects.emplace_back(0, 0, frame.rect.size.width + doublePadding, frame.rect.size.height + doublePadding, false);
     }
 
     auto index = 0;
@@ -155,8 +156,8 @@ Result<> Packer::pack() {
     for (int i = 0; i < rects.size(); i++) {
         auto& frame = m_frames[i];
         auto& rect = rects[i];
-        frame.rect.origin.x = rect.x;
-        frame.rect.origin.y = rect.y;
+        frame.rect.origin.x = rect.x + padding;
+        frame.rect.origin.y = rect.y + padding;
         frame.rotated = rect.flipped;
 
         if (frame.rotated) {
@@ -352,7 +353,7 @@ Result<std::vector<uint8_t>> texpack::toPNG(std::span<const uint8_t> data, uint3
     std::vector<uint8_t> pngData(buffer, buffer + pngSize);
     spng_ctx_free(ctx);
     free(buffer);
-    return Ok(pngData);
+    return Ok(std::move(pngData));
 }
 
 Result<> texpack::toPNG(const std::filesystem::path& path, std::span<const uint8_t> data, uint32_t width, uint32_t height) {
