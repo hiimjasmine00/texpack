@@ -18,6 +18,16 @@ void Packer::frame(std::string_view name, std::span<const uint8_t> data, uint32_
     frame.size.width = width;
     frame.size.height = height;
 
+    if (width == 0 || height == 0) {
+        frame.offset.x = 0;
+        frame.offset.y = 0;
+        frame.rect.size.width = 0;
+        frame.rect.size.height = 0;
+        frame.rotated = false;
+        m_frames.push_back(std::move(frame));
+        return;
+    }
+
     auto left = -1;
     for (int x = 0; x < width; x++) {
         for (int y = 0; y < height; y++) {
