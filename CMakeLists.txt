@@ -16,7 +16,7 @@ if (NOT TARGET GeodeResult)
     CPMAddPackage("gh:geode-sdk/result@1.3.3")
 endif()
 
-if (NOT TARGET pugi)
+if (NOT TARGET pugixml-static)
     CPMAddPackage("gh:zeux/pugixml@1.15")
 endif()
 
