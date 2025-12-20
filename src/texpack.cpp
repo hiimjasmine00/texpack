@@ -4,23 +4,14 @@
 #include <spng.h>
 #include <texpack.hpp>
 
-#if defined(WIN32) || defined(_WIN32) || defined(__WIN32) && !defined(__CYGWIN__) || defined(WIN64) || defined(_WIN64) || defined(__WIN64) && !defined(__CYGWIN__)
-#define GEODE_IS_WINDOWS
-#endif
-
-#ifdef GEODE_IS_WINDOWS
-#include <Windows.h>
-#else
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#endif
-
 using namespace texpack;
 using namespace geode;
 using namespace rectpack2D;
 
-#ifdef GEODE_IS_WINDOWS
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32) && !defined(__CYGWIN__) || defined(WIN64) || defined(_WIN64) || defined(__WIN64) && !defined(__CYGWIN__)
+#define NOMINMAX
+#include <Windows.h>
+
 static std::string formatError(DWORD error = GetLastError()) {
     LPSTR buffer = nullptr;
     DWORD size = FormatMessageA(
@@ -46,13 +37,7 @@ static std::string formatError(DWORD error = GetLastError()) {
 
     return message;
 }
-#else
-static std::string formatError(int error = errno) {
-    return strerror(error);
-}
-#endif
 
-#ifdef GEODE_IS_WINDOWS
 Result<> readFileInto(const std::filesystem::path& path, std::vector<uint8_t>& out) {
     HANDLE file = CreateFileW(
         path.c_str(),
@@ -121,6 +106,14 @@ Result<> writeFileFrom(const std::filesystem::path& path, void* data, size_t siz
     return Ok();
 }
 #else
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+static std::string formatError(int error = errno) {
+    return strerror(error);
+}
+
 Result<> readFileInto(const std::filesystem::path& path, std::vector<uint8_t>& out) {
     int file = open(path.c_str(), O_RDONLY);
 
