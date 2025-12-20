@@ -12,7 +12,9 @@ using namespace rectpack2D;
 #define NOMINMAX
 #include <Windows.h>
 
-static std::string formatError(DWORD error = GetLastError()) {
+std::string formatError() {
+    DWORD error = GetLastError();
+
     LPSTR buffer = nullptr;
     DWORD size = FormatMessageA(
         FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
@@ -110,8 +112,8 @@ Result<> writeFileFrom(const std::filesystem::path& path, void* data, size_t siz
 #include <sys/stat.h>
 #include <unistd.h>
 
-static std::string formatError(int error = errno) {
-    return strerror(error);
+std::string formatError() {
+    return strerror(errno);
 }
 
 Result<> readFileInto(const std::filesystem::path& path, std::vector<uint8_t>& out) {
