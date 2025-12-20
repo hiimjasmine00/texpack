@@ -1,12 +1,173 @@
-#include <fstream>
-#include "pugixml.hpp"
+#include <fmt/format.h>
+#include <pugixml.hpp>
 #include <rectpack2D/finders_interface.h>
 #include <spng.h>
 #include <texpack.hpp>
 
+#ifdef GEODE_IS_WINDOWS
+#include <Windows.h>
+#else
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
+
 using namespace texpack;
 using namespace geode;
 using namespace rectpack2D;
+
+#ifdef GEODE_IS_WINDOWS
+static std::string formatError(DWORD error = GetLastError()) {
+    LPSTR buffer = nullptr;
+    DWORD size = FormatMessageA(
+        FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+        nullptr,
+        error,
+        MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US),
+        (LPSTR)&buffer,
+        0,
+        nullptr
+    );
+
+    if (size == 0 || !buffer) {
+        return fmt::format("Win error {}", error);
+    }
+
+    std::string message(buffer, size);
+    LocalFree(buffer);
+
+    while (!message.empty() && (message.back() == '\n' || message.back() == '\r')) {
+        message.pop_back();
+    }
+
+    return message;
+}
+#else
+static std::string formatError(int error = errno) {
+    return strerror(error);
+}
+#endif
+
+#ifdef GEODE_IS_WINDOWS
+Result<> readFileInto(const std::filesystem::path& path, std::vector<uint8_t>& out) {
+    HANDLE file = CreateFileW(
+        path.c_str(),
+        GENERIC_READ,
+        FILE_SHARE_READ,
+        nullptr,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL,
+        nullptr
+    );
+
+    if (file == INVALID_HANDLE_VALUE) {
+        return Err(fmt::format("Unable to open file: {}", formatError()));
+    }
+
+    LARGE_INTEGER fileSize;
+    if (!GetFileSizeEx(file, &fileSize)) {
+        CloseHandle(file);
+        return Err(fmt::format("Unable to get file size: {}", formatError()));
+    }
+
+    out.resize(fileSize.QuadPart);
+    DWORD read = 0;
+    if (!ReadFile(file, out.data(), static_cast<DWORD>(out.size()), &read, nullptr)) {
+        CloseHandle(file);
+        return Err(fmt::format("Unable to read file: {}", formatError()));
+    }
+
+    CloseHandle(file);
+
+    if (read < out.size()) {
+        return Err(fmt::format("Unable to read entire file: only read {} of {}", read, out.size()));
+    }
+
+    return Ok();
+}
+
+Result<> writeFileFrom(const std::filesystem::path& path, void* data, size_t size) {
+    HANDLE file = CreateFileW(
+        path.c_str(),
+        GENERIC_WRITE,
+        0,
+        nullptr,
+        CREATE_ALWAYS,
+        FILE_ATTRIBUTE_NORMAL,
+        nullptr
+    );
+
+    if (file == INVALID_HANDLE_VALUE) {
+        return Err(fmt::format("Unable to open file: {}", formatError()));
+    }
+
+    DWORD written = 0;
+    if (!WriteFile(file, data, static_cast<DWORD>(size), &written, nullptr)) {
+        CloseHandle(file);
+        return Err(fmt::format("Unable to write file: {}", formatError()));
+    }
+
+    if (written < size) {
+        CloseHandle(file);
+        return Err(fmt::format("Unable to write entire file: only wrote {} of {}", written, size));
+    }
+
+    CloseHandle(file);
+    
+    return Ok();
+}
+#else
+Result<> readFileInto(const std::filesystem::path& path, std::vector<uint8_t>& out) {
+    int file = open(path.c_str(), O_RDONLY);
+
+    if (file == -1) {
+        return Err(fmt::format("Unable to open file: {}", formatError()));
+    }
+
+    struct stat fst;
+    if (fstat(file, &fst) == -1) {
+        close(file);
+        return Err(fmt::format("Unable to get file size: {}", formatError()));
+    }
+
+    out.resize(fst.st_size);
+    ssize_t bread = read(file, out.data(), out.size());
+    close(file);
+
+    if (bread < 0) {
+        return Err(fmt::format("Unable to read file: {}", formatError()));
+    }
+
+    if (bread < out.size()) {
+        return Err(fmt::format("Unable to read entire file: only read {} of {}", bread, out.size()));
+    }
+
+    return Ok();
+}
+
+Result<> writeFileFrom(const std::filesystem::path& path, void* data, size_t size) {
+    int file = open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    
+    if (file < 0) {
+        return Err(fmt::format("Unable to open file: {}", formatError()));
+    }
+
+    size_t written = 0;
+    while (written < size) {
+        ssize_t bwrite = write(file, (uint8_t*)data + written, size - written);
+        if (bwrite < 0) {
+            if (errno == EINTR) continue;
+            close(file);
+            return Err(fmt::format("Unable to write file: {}", formatError()));
+        }
+        written += bwrite;
+    }
+
+    close(file);
+    
+    return Ok();
+}
+#endif
 
 void Packer::frame(std::string_view name, std::span<const uint8_t> data, uint32_t width, uint32_t height) {
     auto it = std::ranges::find_if(m_frames, [name](const Frame& frame) { return frame.name == name; });
@@ -160,7 +321,7 @@ Result<> Packer::pack(int padding) {
         flipping_option::ENABLED
     ));
 
-    if (!success) return Err("Packing failed on " + m_frames[index].name);
+    if (!success) return Err(fmt::format("Packing failed on {}", m_frames[index].name));
     else if (result.w <= 0 || result.h <= 0) return Err("Packing failed");
 
     for (int i = 0; i < rects.size(); i++) {
@@ -203,6 +364,19 @@ Result<> Packer::pack(int padding) {
 }
 
 void Packer::plist(std::ostream& stream, std::string_view name, std::string_view indent) {
+    auto plistData = plist(name, indent);
+    stream.write(plistData.data(), plistData.size());
+}
+
+struct xml_string_writer : pugi::xml_writer {
+    fmt::memory_buffer result;
+
+    void write(const void* data, size_t size) override {
+        fmt::format_to(std::back_inserter(result), "{}", std::string_view(static_cast<const char*>(data), size));
+    }
+};
+
+std::string Packer::plist(std::string_view name, std::string_view indent) {
     pugi::xml_document doc;
     auto root = doc.append_child("plist");
     root.append_attribute("version") = "1.0";
@@ -214,13 +388,14 @@ void Packer::plist(std::ostream& stream, std::string_view name, std::string_view
         frames.append_child("key").text() = frame.name;
         auto frameNode = frames.append_child("dict");
         frameNode.append_child("key").text() = "spriteOffset";
-        frameNode.append_child("string").text() = frame.offset.string();
+        frameNode.append_child("string").text() = fmt::format("{{{}, {}}}", frame.offset.x, frame.offset.y);
         frameNode.append_child("key").text() = "spriteSize";
-        frameNode.append_child("string").text() = frame.rect.size.string();
+        frameNode.append_child("string").text() = fmt::format("{{{}, {}}}", frame.rect.size.width, frame.rect.size.height);
         frameNode.append_child("key").text() = "spriteSourceSize";
-        frameNode.append_child("string").text() = frame.size.string();
+        frameNode.append_child("string").text() = fmt::format("{{{}, {}}}", frame.size.width, frame.size.height);
         frameNode.append_child("key").text() = "textureRect";
-        frameNode.append_child("string").text() = frame.rect.string();
+        frameNode.append_child("string").text() = fmt::format("{{{}, {}, {}, {}}}",
+            frame.rect.origin.x, frame.rect.origin.y, frame.rect.size.width, frame.rect.size.height);
         frameNode.append_child("key").text() = "textureRotated";
         frameNode.append_child(frame.rotated ? "true" : "false");
     }
@@ -232,25 +407,18 @@ void Packer::plist(std::ostream& stream, std::string_view name, std::string_view
     metadata.append_child("key").text() = "realTextureFileName";
     metadata.append_child("string").text() = name;
     metadata.append_child("key").text() = "size";
-    metadata.append_child("string").text() = "{" + std::to_string(m_image.width) + "," + std::to_string(m_image.height) + "}";
+    metadata.append_child("string").text() = fmt::format("{{{}, {}}}", m_image.width, m_image.height);
     metadata.append_child("key").text() = "textureFileName";
     metadata.append_child("string").text() = name;
 
-    doc.save(stream, indent.data());
-}
-
-std::string Packer::plist(std::string_view name, std::string_view indent) {
-    std::ostringstream writer;
-    plist(writer, name, indent);
-    return writer.str();
+    xml_string_writer writer;
+    doc.save(writer, indent.data());
+    return fmt::to_string(writer.result);
 }
 
 Result<> Packer::plist(const std::filesystem::path& path, std::string_view name, std::string_view indent) {
-    std::ofstream file(path);
-    if (!file.is_open()) return Err("Failed to open file");
-    plist(file, name, indent);
-    file.close();
-    return Ok();
+    auto plistData = plist(name, indent);
+    return writeFileFrom(path, plistData.data(), plistData.size());
 }
 
 Result<> Packer::png(std::ostream& stream) {
@@ -281,25 +449,25 @@ Result<Image> texpack::fromPNG(std::span<const uint8_t> data, bool premultiplyAl
 
     if (auto result = spng_set_png_buffer(ctx, data.data(), data.size())) {
         spng_ctx_free(ctx);
-        return Err(std::string("Failed to set PNG buffer: ") + spng_strerror(result));
+        return Err(fmt::format("Failed to set PNG buffer: {}", spng_strerror(result)));
     }
 
     spng_ihdr ihdr;
     if (auto result = spng_get_ihdr(ctx, &ihdr)) {
         spng_ctx_free(ctx);
-        return Err(std::string("Failed to get image header: ") + spng_strerror(result));
+        return Err(fmt::format("Failed to get image header: {}", spng_strerror(result)));
     }
 
     size_t imageSize = 0;
     if (auto result = spng_decoded_image_size(ctx, SPNG_FMT_RGBA8, &imageSize)) {
         spng_ctx_free(ctx);
-        return Err(std::string("Failed to get image size: ") + spng_strerror(result));
+        return Err(fmt::format("Failed to get image size: {}", spng_strerror(result)));
     }
 
     std::vector<uint8_t> image(imageSize);
     if (auto result = spng_decode_image(ctx, image.data(), imageSize, SPNG_FMT_RGBA8, SPNG_DECODE_TRNS)) {
         spng_ctx_free(ctx);
-        return Err(std::string("Failed to decode image: ") + spng_strerror(result));
+        return Err(fmt::format("Failed to decode image: {}", spng_strerror(result)));
     }
 
     spng_ctx_free(ctx);
@@ -317,9 +485,9 @@ Result<Image> texpack::fromPNG(std::span<const uint8_t> data, bool premultiplyAl
 }
 
 Result<Image> texpack::fromPNG(const std::filesystem::path& path, bool premultiplyAlpha) {
-    std::ifstream file(path, std::ios::binary);
-    if (!file.is_open()) return Err("Failed to open file");
-    return fromPNG(file, premultiplyAlpha);
+    std::vector<uint8_t> data;
+    GEODE_UNWRAP(readFileInto(path, data));
+    return fromPNG(data, premultiplyAlpha);
 }
 
 Result<> texpack::toPNG(std::ostream& stream, std::span<const uint8_t> data, uint32_t width, uint32_t height) {
@@ -334,18 +502,18 @@ Result<std::vector<uint8_t>> texpack::toPNG(std::span<const uint8_t> data, uint3
 
     if (auto result = spng_set_option(ctx, SPNG_ENCODE_TO_BUFFER, 1)) {
         spng_ctx_free(ctx);
-        return Err(std::string("Failed to set encoding options: ") + spng_strerror(result));
+        return Err(fmt::format("Failed to set encoding options: {}", spng_strerror(result)));
     }
 
     spng_ihdr ihdr = { width, height, 8, SPNG_COLOR_TYPE_TRUECOLOR_ALPHA, 0, SPNG_FILTER_NONE, SPNG_INTERLACE_NONE };
     if (auto result = spng_set_ihdr(ctx, &ihdr)) {
         spng_ctx_free(ctx);
-        return Err(std::string("Failed to set image header: ") + spng_strerror(result));
+        return Err(fmt::format("Failed to set image header: {}", spng_strerror(result)));
     }
 
     if (auto result = spng_encode_image(ctx, data.data(), width * height * 4, SPNG_FMT_PNG, SPNG_ENCODE_FINALIZE)) {
         spng_ctx_free(ctx);
-        return Err(std::string("Failed to encode image: ") + spng_strerror(result));
+        return Err(fmt::format("Failed to encode image: {}", spng_strerror(result)));
     }
 
     size_t pngSize = 0;
@@ -353,7 +521,7 @@ Result<std::vector<uint8_t>> texpack::toPNG(std::span<const uint8_t> data, uint3
     auto buffer = reinterpret_cast<uint8_t*>(spng_get_png_buffer(ctx, &pngSize, &result));
     if (result != 0) {
         spng_ctx_free(ctx);
-        return Err(std::string("Failed to get PNG buffer: ") + spng_strerror(result));
+        return Err(fmt::format("Failed to get PNG buffer: {}", spng_strerror(result)));
     }
     else if (!buffer) {
         spng_ctx_free(ctx);
@@ -368,9 +536,5 @@ Result<std::vector<uint8_t>> texpack::toPNG(std::span<const uint8_t> data, uint3
 
 Result<> texpack::toPNG(const std::filesystem::path& path, std::span<const uint8_t> data, uint32_t width, uint32_t height) {
     GEODE_UNWRAP_INTO(auto pngData, toPNG(data, width, height));
-    std::ofstream file(path, std::ios::binary);
-    if (!file.is_open()) return Err("Failed to open file");
-    file.write(reinterpret_cast<const char*>(pngData.data()), pngData.size());
-    file.close();
-    return Ok();
+    return writeFileFrom(path, pngData.data(), pngData.size());
 }
