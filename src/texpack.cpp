@@ -4,6 +4,10 @@
 #include <spng.h>
 #include <texpack.hpp>
 
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32) && !defined(__CYGWIN__) || defined(WIN64) || defined(_WIN64) || defined(__WIN64) && !defined(__CYGWIN__)
+#define GEODE_IS_WINDOWS
+#endif
+
 #ifdef GEODE_IS_WINDOWS
 #include <Windows.h>
 #else
