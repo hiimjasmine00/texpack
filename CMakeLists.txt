@@ -31,7 +31,8 @@ endif()
 target_compile_features(texpack PUBLIC cxx_std_20)
 
 target_include_directories(texpack PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_link_libraries(texpack PUBLIC GeodeResult $<LINK_ONLY:fmt> $<LINK_ONLY:pugixml-static> $<LINK_ONLY:rectpack2D> $<LINK_ONLY:spng_static>)
+target_link_libraries(texpack PUBLIC GeodeResult)
+target_link_libraries(texpack PRIVATE fmt pugixml-static rectpack2D spng_static)
 
 if (PROJECT_IS_TOP_LEVEL)
     add_subdirectory(test)
