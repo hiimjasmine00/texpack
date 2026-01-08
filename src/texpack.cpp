@@ -168,6 +168,18 @@ Result<> writeFileFrom(const std::filesystem::path& path, void* data, size_t siz
 }
 #endif
 
+std::string Point::string() const {
+    return fmt::format("{{{}, {}}}", x, y);
+}
+
+std::string Size::string() const {
+    return fmt::format("{{{}, {}}}", width, height);
+}
+
+std::string Rect::string() const {
+    return fmt::format("{{{{{}, {}}}, {{{}, {}}}}}", origin.x, origin.y, size.width, size.height);
+}
+
 void Packer::frame(std::string_view name, std::span<const uint8_t> data, uint32_t width, uint32_t height) {
     auto it = std::ranges::find_if(m_frames, [name](const Frame& frame) { return frame.name == name; });
     if (it != m_frames.end()) m_frames.erase(it, m_frames.end());
@@ -331,7 +343,8 @@ Result<> Packer::pack(int padding) {
         frame.rotated = rect.flipped;
 
         if (frame.rotated) {
-            std::vector<uint8_t> original(frame.data);
+            std::vector<uint8_t> original(frame.data.size());
+            frame.data.swap(original);
             auto [w, h] = frame.rect.size;
             for (int x = 0; x < w * 4; x++) {
                 for (int y = h - 1; y >= 0; y--) {
@@ -387,14 +400,13 @@ std::string Packer::plist(std::string_view name, std::string_view indent) {
         frames.append_child("key").text() = frame.name;
         auto frameNode = frames.append_child("dict");
         frameNode.append_child("key").text() = "spriteOffset";
-        frameNode.append_child("string").text() = fmt::format("{{{}, {}}}", frame.offset.x, frame.offset.y);
+        frameNode.append_child("string").text() = frame.offset.string();
         frameNode.append_child("key").text() = "spriteSize";
-        frameNode.append_child("string").text() = fmt::format("{{{}, {}}}", frame.rect.size.width, frame.rect.size.height);
+        frameNode.append_child("string").text() = frame.rect.size.string();
         frameNode.append_child("key").text() = "spriteSourceSize";
-        frameNode.append_child("string").text() = fmt::format("{{{}, {}}}", frame.size.width, frame.size.height);
+        frameNode.append_child("string").text() = frame.size.string();
         frameNode.append_child("key").text() = "textureRect";
-        frameNode.append_child("string").text() = fmt::format("{{{}, {}, {}, {}}}",
-            frame.rect.origin.x, frame.rect.origin.y, frame.rect.size.width, frame.rect.size.height);
+        frameNode.append_child("string").text() = frame.rect.string();
         frameNode.append_child("key").text() = "textureRotated";
         frameNode.append_child(frame.rotated ? "true" : "false");
     }
@@ -480,7 +492,7 @@ Result<Image> texpack::fromPNG(std::span<const uint8_t> data, bool premultiplyAl
         }
     }
 
-    return Ok<Image>({ image, ihdr.width, ihdr.height });
+    return Ok(Image(std::move(image), ihdr.width, ihdr.height));
 }
 
 Result<Image> texpack::fromPNG(const std::filesystem::path& path, bool premultiplyAlpha) {
@@ -527,9 +539,12 @@ Result<std::vector<uint8_t>> texpack::toPNG(std::span<const uint8_t> data, uint3
         return Err("Failed to get PNG buffer");
     }
 
-    std::vector<uint8_t> pngData(buffer, buffer + pngSize);
+    std::vector<uint8_t> pngData;
+    auto ptr = reinterpret_cast<uint8_t**>(&pngData);
+    ptr[0] = buffer;
+    ptr[1] = buffer + pngSize;
+    ptr[2] = buffer + pngSize;
     spng_ctx_free(ctx);
-    free(buffer);
     return Ok(std::move(pngData));
 }
 

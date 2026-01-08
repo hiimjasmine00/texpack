@@ -29,9 +29,7 @@ namespace texpack {
 
         /// Converts the point to a string representation.
         /// @returns A string in the format "{x,y}".
-        std::string string() const {
-            return "{" + std::to_string(x) + "," + std::to_string(y) + "}";
-        }
+        std::string string() const;
     };
 
     /// A 2D size structure, representing the width and height of a rectangle.
@@ -56,9 +54,7 @@ namespace texpack {
 
         /// Converts the size to a string representation.
         /// @returns A string in the format "{width,height}".
-        std::string string() const {
-            return "{" + std::to_string(width) + "," + std::to_string(height) + "}";
-        }
+        std::string string() const;
     };
 
     /// A 2D rectangle structure, defined by its origin point and size.
@@ -84,10 +80,7 @@ namespace texpack {
 
         /// Converts the rectangle to a string representation.
         /// @returns A string in the format "{{x,y},{width,height}}".
-        std::string string() const {
-            return "{{" + std::to_string(origin.x) + "," + std::to_string(origin.y)
-                + "},{" + std::to_string(size.width) + "," + std::to_string(size.height) + "}}";
-        }
+        std::string string() const;
     };
 
     /// A structure representing a frame in the texture atlas.
@@ -108,6 +101,7 @@ namespace texpack {
 
         Image() : data(), width(0), height(0) {}
         Image(std::span<const uint8_t> data, uint32_t width, uint32_t height) : data(data.begin(), data.end()), width(width), height(height) {}
+        Image(std::vector<uint8_t>&& data, uint32_t width, uint32_t height) : data(std::move(data)), width(width), height(height) {}
         Image(const Image& other) : data(other.data), width(other.width), height(other.height) {}
         Image(Image&& other) : data(std::move(other.data)), width(other.width), height(other.height) {
             other.width = 0;

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(texpack VERSION 0.5.3)
+project(texpack VERSION 0.6.0)
 
 add_library(texpack src/texpack.cpp)
 
