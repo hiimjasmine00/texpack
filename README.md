@@ -5,7 +5,7 @@ A C++ library for combining textures into Zwoptex spritesheets. (If you don't kn
 This library can be included using [CPM.cmake](https://github.com/cpm-cmake/CPM.cmake).
 ```cmake
 # Add texpack to your project
-CPMAddPackage("gh:hiimjasmine00/texpack@0.6.0")
+CPMAddPackage("gh:hiimjasmine00/texpack@0.6.1")
 
 # Add the library to your target
 target_link_libraries(${PROJECT_NAME} texpack)

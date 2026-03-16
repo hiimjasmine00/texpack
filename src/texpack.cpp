@@ -169,15 +169,15 @@ Result<> writeFileFrom(const std::filesystem::path& path, void* data, size_t siz
 #endif
 
 std::string Point::string() const {
-    return fmt::format("{{{}, {}}}", x, y);
+    return fmt::format("{{{},{}}}", x, y);
 }
 
 std::string Size::string() const {
-    return fmt::format("{{{}, {}}}", width, height);
+    return fmt::format("{{{},{}}}", width, height);
 }
 
 std::string Rect::string() const {
-    return fmt::format("{{{{{}, {}}}, {{{}, {}}}}}", origin.x, origin.y, size.width, size.height);
+    return fmt::format("{{{{{},{}}},{{{},{}}}}}", origin.x, origin.y, size.width, size.height);
 }
 
 void Packer::frame(std::string_view name, std::span<const uint8_t> data, uint32_t width, uint32_t height) {
