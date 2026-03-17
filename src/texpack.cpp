@@ -516,6 +516,16 @@ Result<std::vector<uint8_t>> texpack::toPNG(std::span<const uint8_t> data, uint3
         return Err(fmt::format("Failed to set encoding options: {}", spng_strerror(result)));
     }
 
+    std::vector<uint8_t> pngData;
+    if (auto result = spng_set_png_buf_fn(ctx, [](size_t size, void* data) {
+        auto pngData = reinterpret_cast<std::vector<uint8_t>*>(data);
+        pngData->resize(size, 0);
+        return static_cast<void*>(pngData->data());
+    }, &pngData)) {
+        spng_ctx_free(ctx);
+        return Err(fmt::format("Failed to set PNG buffer function: {}", spng_strerror(result)));
+    }
+
     spng_ihdr ihdr = { width, height, 8, SPNG_COLOR_TYPE_TRUECOLOR_ALPHA, 0, SPNG_FILTER_NONE, SPNG_INTERLACE_NONE };
     if (auto result = spng_set_ihdr(ctx, &ihdr)) {
         spng_ctx_free(ctx);
@@ -529,21 +539,14 @@ Result<std::vector<uint8_t>> texpack::toPNG(std::span<const uint8_t> data, uint3
 
     size_t pngSize = 0;
     auto result = 0;
-    auto buffer = reinterpret_cast<uint8_t*>(spng_get_png_buffer(ctx, &pngSize, &result));
+    spng_get_png_buffer(ctx, &pngSize, &result);
     if (result != 0) {
         spng_ctx_free(ctx);
         return Err(fmt::format("Failed to get PNG buffer: {}", spng_strerror(result)));
     }
-    else if (!buffer) {
-        spng_ctx_free(ctx);
-        return Err("Failed to get PNG buffer");
-    }
 
-    std::vector<uint8_t> pngData;
-    auto ptr = reinterpret_cast<uint8_t**>(&pngData);
-    ptr[0] = buffer;
-    ptr[1] = buffer + pngSize;
-    ptr[2] = buffer + pngSize;
+    pngData.resize(pngSize, 0);
+
     spng_ctx_free(ctx);
     return Ok(std::move(pngData));
 }

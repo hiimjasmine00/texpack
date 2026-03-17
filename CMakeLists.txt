@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(texpack VERSION 0.6.1)
+project(texpack VERSION 0.6.2)
 
 add_library(texpack src/texpack.cpp)
 
@@ -47,7 +47,7 @@ if (TARGET spng_static)
 elseif (TARGET spng)
     target_link_libraries(texpack PUBLIC spng)
 else()
-    CPMAddPackage("gh:hiimjasmine00/libspng#73f9764")
+    CPMAddPackage("gh:hiimjasmine00/libspng#3984c9f")
     target_link_libraries(texpack PRIVATE spng_static)
 endif()
 
