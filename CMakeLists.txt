@@ -47,7 +47,7 @@ if (TARGET spng_static)
 elseif (TARGET spng)
     target_link_libraries(texpack PUBLIC spng)
 else()
-    CPMAddPackage("gh:hiimjasmine00/libspng#3984c9f")
+    CPMAddPackage("gh:hiimjasmine00/libspng#73f9764")
     target_link_libraries(texpack PRIVATE spng_static)
 endif()
 
