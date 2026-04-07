@@ -395,7 +395,7 @@ Result<> Packer::pack(int padding) {
     return Ok();
 }
 
-void Packer::plist(std::ostream& stream, std::string_view name, std::string_view indent) {
+void Packer::plist(std::ostream& stream, std::string_view name, std::string_view indent) const {
     auto plistData = plist(name, indent);
     stream.write(plistData.data(), plistData.size());
 }
@@ -408,7 +408,7 @@ struct xml_string_writer : pugi::xml_writer {
     }
 };
 
-std::string Packer::plist(std::string_view name, std::string_view indent) {
+std::string Packer::plist(std::string_view name, std::string_view indent) const {
     pugi::xml_document doc;
     auto root = doc.append_child("plist");
     root.append_attribute("version") = "1.0";
@@ -447,20 +447,20 @@ std::string Packer::plist(std::string_view name, std::string_view indent) {
     return fmt::to_string(writer.result);
 }
 
-Result<> Packer::plist(const std::filesystem::path& path, std::string_view name, std::string_view indent) {
+Result<> Packer::plist(const std::filesystem::path& path, std::string_view name, std::string_view indent) const {
     auto plistData = plist(name, indent);
     return writeFileFrom(path, plistData.data(), plistData.size());
 }
 
-Result<> Packer::png(std::ostream& stream) {
+Result<> Packer::png(std::ostream& stream) const {
     return toPNG(stream, m_image);
 }
 
-Result<std::vector<uint8_t>> Packer::png() {
+Result<std::vector<uint8_t>> Packer::png() const {
     return toPNG(m_image);
 }
 
-Result<> Packer::png(const std::filesystem::path& path) {
+Result<> Packer::png(const std::filesystem::path& path) const {
     return toPNG(path, m_image);
 }
 

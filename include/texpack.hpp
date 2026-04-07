@@ -181,34 +181,34 @@ namespace texpack {
         /// @param stream The output stream where the property list will be saved.
         /// @param name The name of the texture atlas.
         /// @param indent The string used for indentation in the property list. (Default: "\t")
-        void plist(std::ostream& stream, std::string_view name, std::string_view indent = "\t");
+        void plist(std::ostream& stream, std::string_view name, std::string_view indent = "\t") const;
 
         /// Generates a property list representation of the frames.
         /// @param name The name of the texture atlas.
         /// @param indent The string used for indentation in the property list. (Default: "\t")
         /// @returns A string containing the property list representation of the frames.
-        std::string plist(std::string_view name, std::string_view indent = "\t");
+        std::string plist(std::string_view name, std::string_view indent = "\t") const;
 
         /// Saves a property list representation of the frames to a file.
         /// @param path The path to the file where the property list will be saved.
         /// @param name The name of the texture atlas.
         /// @param indent The string used for indentation in the property list. (Default: "\t")
         /// @returns An error if the file cannot be opened or written to.
-        geode::Result<> plist(const std::filesystem::path& path, std::string_view name, std::string_view indent = "\t");
+        geode::Result<> plist(const std::filesystem::path& path, std::string_view name, std::string_view indent = "\t") const;
 
         /// Saves a PNG representation of the packed frames to an output stream.
         /// @param stream The output stream where the PNG will be saved.
         /// @returns An error if the encoding fails or the stream cannot be written to.
-        geode::Result<> png(std::ostream& stream);
+        geode::Result<> png(std::ostream& stream) const;
 
         /// Generates a PNG representation of the packed frames.
         /// @returns A vector of bytes containing the PNG data, or an error if the encoding fails.
-        geode::Result<std::vector<uint8_t>> png();
+        geode::Result<std::vector<uint8_t>> png() const;
 
         /// Saves a PNG representation of the packed frames to a file.
         /// @param path The path to the file where the PNG will be saved.
         /// @returns An error if the encoding fails or the file cannot be opened.
-        geode::Result<> png(const std::filesystem::path& path);
+        geode::Result<> png(const std::filesystem::path& path) const;
     };
 
     /// Creates an RGBA8888 image from an input stream.
