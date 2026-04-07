@@ -9,6 +9,10 @@ using namespace geode;
 using namespace rectpack2D;
 
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32) && !defined(__CYGWIN__) || defined(WIN64) || defined(_WIN64) || defined(__WIN64) && !defined(__CYGWIN__)
+#define GEODE_IS_WINDOWS
+#endif
+
+#ifdef GEODE_IS_WINDOWS
 #define NOMINMAX
 #include <Windows.h>
 
@@ -180,13 +184,29 @@ std::string Rect::string() const {
     return fmt::format("{{{{{},{}}},{{{},{}}}}}", origin.x, origin.y, size.width, size.height);
 }
 
-void Packer::frame(std::string_view name, std::span<const uint8_t> data, uint32_t width, uint32_t height) {
-    auto it = std::ranges::find_if(m_frames, [name](const Frame& frame) { return frame.name == name; });
+Image::Image() = default;
+Image::Image(std::span<const uint8_t> data, uint32_t width, uint32_t height) : data(data.begin(), data.end()), width(width), height(height) {}
+Image::Image(std::vector<uint8_t>&& data, uint32_t width, uint32_t height) : data(std::move(data)), width(width), height(height) {}
+
+Image::Image(const Image&) = default;
+Image::Image(Image&&) = default;
+Image& Image::operator=(const Image&) = default;
+Image& Image::operator=(Image&&) = default;
+
+Packer::Packer(int capacity) : m_frames(), m_image(), m_capacity(capacity) {}
+
+Packer::Packer(const Packer&) = default;
+Packer::Packer(Packer&&) = default;
+Packer& Packer::operator=(const Packer&) = default;
+Packer& Packer::operator=(Packer&&) = default;
+
+void Packer::frame(std::string name, std::span<const uint8_t> data, uint32_t width, uint32_t height) {
+    auto it = std::ranges::find_if(m_frames, [&name](const Frame& frame) { return frame.name == name; });
     if (it != m_frames.end()) m_frames.erase(it, m_frames.end());
 
     Frame frame;
 
-    frame.name = name;
+    frame.name = std::move(name);
     frame.size.width = width;
     frame.size.height = height;
 
@@ -271,21 +291,21 @@ void Packer::frame(std::string_view name, std::span<const uint8_t> data, uint32_
     m_frames.push_back(std::move(frame));
 }
 
-Result<> Packer::frame(std::string_view name, std::istream& stream, bool premultiplyAlpha) {
+Result<> Packer::frame(std::string name, std::istream& stream, bool premultiplyAlpha) {
     GEODE_UNWRAP_INTO(auto image, fromPNG(stream, premultiplyAlpha));
-    frame(name, image);
+    frame(std::move(name), image);
     return Ok();
 }
 
-Result<> Packer::frame(std::string_view name, std::span<const uint8_t> data, bool premultiplyAlpha) {
+Result<> Packer::frame(std::string name, std::span<const uint8_t> data, bool premultiplyAlpha) {
     GEODE_UNWRAP_INTO(auto image, fromPNG(data, premultiplyAlpha));
-    frame(name, image);
+    frame(std::move(name), image);
     return Ok();
 }
 
-Result<> Packer::frame(std::string_view name, const std::filesystem::path& path, bool premultiplyAlpha) {
+Result<> Packer::frame(std::string name, const std::filesystem::path& path, bool premultiplyAlpha) {
     GEODE_UNWRAP_INTO(auto image, fromPNG(path, premultiplyAlpha));
-    frame(name, image);
+    frame(std::move(name), image);
     return Ok();
 }
 

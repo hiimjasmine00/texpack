@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(texpack VERSION 0.6.2)
+project(texpack VERSION 0.7.0)
 
 add_library(texpack src/texpack.cpp)
 
@@ -17,12 +17,12 @@ if (TARGET fmt::fmt)
 elseif (TARGET fmt::fmt-header-only)
     target_link_libraries(texpack PUBLIC fmt::fmt-header-only)
 else()
-    CPMAddPackage("gh:fmtlib/fmt#11.1.4")
+    CPMAddPackage("gh:fmtlib/fmt#12.1.0")
     target_link_libraries(texpack PRIVATE fmt::fmt)
 endif()
 
 if (NOT TARGET GeodeResult)
-    CPMAddPackage("gh:geode-sdk/result@1.3.3")
+    CPMAddPackage("gh:geode-sdk/result@1.4.1")
 endif()
 target_link_libraries(texpack PUBLIC GeodeResult)
 

@@ -9,19 +9,15 @@
 namespace texpack {
     /// A 2D point structure, representing a coordinate in a 2D space.
     struct Point {
-        int x;
-        int y;
+        int x = 0;
+        int y = 0;
 
-        Point() : x(0), y(0) {}
+        Point() = default;
         Point(int x, int y) : x(x), y(y) {}
         Point(uint32_t x, uint32_t y) : x(x), y(y) {}
-        Point(const Point& other) : x(other.x), y(other.y) {}
+        Point(const Point& other) = default;
 
-        Point& operator=(const Point& other) {
-            x = other.x;
-            y = other.y;
-            return *this;
-        }
+        Point& operator=(const Point& other) = default;
 
         bool operator==(const Point& other) const {
             return x == other.x && y == other.y;
@@ -34,19 +30,15 @@ namespace texpack {
 
     /// A 2D size structure, representing the width and height of a rectangle.
     struct Size {
-        int width;
-        int height;
+        int width = 0;
+        int height = 0;
 
-        Size() : width(0), height(0) {}
+        Size() = default;
         Size(int width, int height) : width(width), height(height) {}
         Size(uint32_t width, uint32_t height) : width(width), height(height) {}
-        Size(const Size& other) : width(other.width), height(other.height) {}
+        Size(const Size& other) = default;
 
-        Size& operator=(const Size& other) {
-            width = other.width;
-            height = other.height;
-            return *this;
-        }
+        Size& operator=(const Size& other) = default;
 
         bool operator==(const Size& other) const {
             return width == other.width && height == other.height;
@@ -62,17 +54,13 @@ namespace texpack {
         Point origin;
         Size size;
 
-        Rect() : origin(), size() {}
+        Rect() = default;
         Rect(int x, int y, int width, int height) : origin(x, y), size(width, height) {}
         Rect(uint32_t x, uint32_t y, uint32_t width, uint32_t height) : origin(x, y), size(width, height) {}
         Rect(const Point& origin, const Size& size) : origin(origin), size(size) {}
-        Rect(const Rect& other) : origin(other.origin), size(other.size) {}
+        Rect(const Rect& other) = default;
 
-        Rect& operator=(const Rect& other) {
-            origin = other.origin;
-            size = other.size;
-            return *this;
-        }
+        Rect& operator=(const Rect& other) = default;
 
         bool operator==(const Rect& other) const {
             return origin == other.origin && size == other.size;
@@ -90,38 +78,23 @@ namespace texpack {
         Point offset;
         Size size;
         Rect rect;
-        bool rotated;
+        bool rotated = false;
     };
 
     /// A structure representing an image in RGBA8888 format.
     struct Image {
         std::vector<uint8_t> data;
-        uint32_t width;
-        uint32_t height;
+        uint32_t width = 0;
+        uint32_t height = 0;
 
-        Image() : data(), width(0), height(0) {}
-        Image(std::span<const uint8_t> data, uint32_t width, uint32_t height) : data(data.begin(), data.end()), width(width), height(height) {}
-        Image(std::vector<uint8_t>&& data, uint32_t width, uint32_t height) : data(std::move(data)), width(width), height(height) {}
-        Image(const Image& other) : data(other.data), width(other.width), height(other.height) {}
-        Image(Image&& other) : data(std::move(other.data)), width(other.width), height(other.height) {
-            other.width = 0;
-            other.height = 0;
-        }
+        Image();
+        Image(std::span<const uint8_t> data, uint32_t width, uint32_t height);
+        Image(std::vector<uint8_t>&& data, uint32_t width, uint32_t height);
+        Image(const Image& other);
+        Image(Image&& other);
 
-        Image& operator=(const Image& other) {
-            data = other.data;
-            width = other.width;
-            height = other.height;
-            return *this;
-        }
-        Image& operator=(Image&& other) {
-            data = std::move(other.data);
-            width = other.width;
-            height = other.height;
-            other.width = 0;
-            other.height = 0;
-            return *this;
-        }
+        Image& operator=(const Image& other);
+        Image& operator=(Image&& other);
     };
 
     /// A class for packing frames into a texture atlas, with maximum dimensions.
@@ -131,38 +104,25 @@ namespace texpack {
         Image m_image;
         int m_capacity;
     public:
-        Packer(int capacity = 10000) : m_capacity(capacity) {}
-        Packer(const Packer& other) : m_frames(other.m_frames), m_image(other.m_image), m_capacity(other.m_capacity) {}
-        Packer(Packer&& other) : m_frames(std::move(other.m_frames)), m_image(std::move(other.m_image)), m_capacity(other.m_capacity) {
-            other.m_capacity = 0;
-        }
+        Packer(int capacity = 10000);
+        Packer(const Packer& other);
+        Packer(Packer&& other);
 
-        Packer& operator=(const Packer& other) {
-            m_frames = other.m_frames;
-            m_image = other.m_image;
-            m_capacity = other.m_capacity;
-            return *this;
-        }
-        Packer& operator=(Packer&& other) {
-            m_frames = std::move(other.m_frames);
-            m_image = std::move(other.m_image);
-            m_capacity = other.m_capacity;
-            other.m_capacity = 0;
-            return *this;
-        }
+        Packer& operator=(const Packer& other);
+        Packer& operator=(Packer&& other);
 
         /// Adds a frame to the packer.
         /// @param name The name of the frame.
         /// @param data The pixel data of the frame, in RGBA8888 format.
         /// @param width The width of the frame.
         /// @param height The height of the frame.
-        void frame(std::string_view name, std::span<const uint8_t> data, uint32_t width, uint32_t height);
+        void frame(std::string name, std::span<const uint8_t> data, uint32_t width, uint32_t height);
 
         /// Adds a frame to the packer from an RGBA8888 image.
         /// @param name The name of the frame.
         /// @param image An RGBA8888 image.
-        void frame(std::string_view name, const Image& image) {
-            frame(name, image.data, image.width, image.height);
+        void frame(std::string name, const Image& image) {
+            frame(std::move(name), image.data, image.width, image.height);
         }
 
         /// Adds a frame to the packer from an input stream.
@@ -170,21 +130,21 @@ namespace texpack {
         /// @param stream The input stream containing the PNG data.
         /// @param premultiplyAlpha Whether to premultiply the alpha channel. (Default: false)
         /// @returns An error if the PNG data cannot be decoded.
-        geode::Result<> frame(std::string_view name, std::istream& stream, bool premultiplyAlpha = false);
+        geode::Result<> frame(std::string name, std::istream& stream, bool premultiplyAlpha = false);
 
         /// Adds a frame to the packer from PNG data.
         /// @param name The name of the frame.
         /// @param data The PNG data of the frame.
         /// @param premultiplyAlpha Whether to premultiply the alpha channel. (Default: false)
         /// @returns An error if the PNG data cannot be decoded.
-        geode::Result<> frame(std::string_view name, std::span<const uint8_t> data, bool premultiplyAlpha = false);
+        geode::Result<> frame(std::string name, std::span<const uint8_t> data, bool premultiplyAlpha = false);
 
         /// Adds a frame to the packer from a PNG file.
         /// @param name The name of the frame.
         /// @param path The path to the PNG file.
         /// @param premultiplyAlpha Whether to premultiply the alpha channel. (Default: false)
         /// @returns An error if the file cannot be opened or the PNG data cannot be decoded.
-        geode::Result<> frame(std::string_view name, const std::filesystem::path& path, bool premultiplyAlpha = false);
+        geode::Result<> frame(std::string name, const std::filesystem::path& path, bool premultiplyAlpha = false);
 
         /// Gets a frame from the packer by its name.
         /// @param name The name of the frame.
